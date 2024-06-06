@@ -258,4 +258,3 @@ size_t replace_code_block(char* src_code, int size, char* replace_from, int repl
 
 	return size;
 }
-
