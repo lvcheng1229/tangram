@@ -48,6 +48,14 @@ protected:
     bool enable_white_space_optimize = true;
     bool ignore_medium_presion_out = true;
 
+    struct SParserContext
+    {
+        bool is_vector_swizzle = false;
+        bool is_vector_times_scalar = false;
+    };
+
+    SParserContext parser_context;
+
     std::string code_buffer;
     std::set<long long> declared_symbols_id;
 };
@@ -103,6 +111,12 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
             appendStr(")");
         }
         
+
+        if (qualifier.flat)
+        {
+            appendStr(" flat");
+        }
+            
         //bool should_out_storage_qualifier = ((basic_type == EbtBlock) || (basic_type == EbtSampler));
         bool should_out_storage_qualifier = true;
         if (type.getQualifier().storage == EvqTemporary)
@@ -239,6 +253,58 @@ TString TTanGramTraverser::getArraySize(const TType& type)
 
 bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
+    const auto binary_const_union_pre_left = [&]() {
+        TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
+        if (contant_union)
+        {
+            int array_size = contant_union->getConstArray().size();
+            if (array_size > 1)
+            {
+                code_buffer.append("vec");
+                code_buffer.append(std::to_string(array_size).c_str());
+                code_buffer.append("(");
+                parser_context.is_vector_times_scalar = true;
+            }
+        } };
+
+    const auto binary_const_union_in_left = [&]() {
+        TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
+        if (contant_union)
+        {
+            int array_size = contant_union->getConstArray().size();
+            if (array_size > 1)
+            {
+                parser_context.is_vector_times_scalar = false;
+                code_buffer.append(")");
+            }
+        }};
+
+    const auto binary_const_union_in_right = [&]() {
+        TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
+        if (contant_union)
+        {
+            int array_size = contant_union->getConstArray().size();
+            if (array_size > 1)
+            {
+                code_buffer.append("vec");
+                code_buffer.append(std::to_string(array_size).c_str());
+                code_buffer.append("(");
+                parser_context.is_vector_times_scalar = true;
+            }
+        } };
+
+    const auto binary_const_union_post_right = [&]() {
+        TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
+        if (contant_union)
+        {
+            int array_size = contant_union->getConstArray().size();
+            if (array_size > 1)
+            {
+                parser_context.is_vector_times_scalar = false;
+                code_buffer.append(")");
+            }
+        }};
+
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
@@ -312,21 +378,27 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
         else
         {
             code_buffer.append(".");
+            parser_context.is_vector_swizzle = true;
         },
         if (node->getLeft()->getType().isArray())
         { 
             code_buffer.append("]"); 
-        });
+            
+        }
+        else
+        {
+            parser_context.is_vector_swizzle = false;
+        } );
     
         //
     // binary operations
     //
 
-    case EOpAdd:NODE_VISIT_FUNC(, code_buffer.append("+"), );
-    case EOpSub:NODE_VISIT_FUNC(, code_buffer.append("-"), );
-    case EOpMul:NODE_VISIT_FUNC(, code_buffer.append("*"), );
-    case EOpDiv:NODE_VISIT_FUNC(, code_buffer.append("/"), );
-    case EOpMod:NODE_VISIT_FUNC(, code_buffer.append("%"), );
+    case EOpAdd:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("+"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
+    case EOpSub:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("-"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
+    case EOpMul:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("*"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
+    case EOpDiv:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("/"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
+    case EOpMod:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("%"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
     case EOpRightShift:NODE_VISIT_FUNC(, code_buffer.append(">>"), );
     case EOpLeftShift:NODE_VISIT_FUNC(, code_buffer.append("<<"), );
     case EOpAnd:NODE_VISIT_FUNC(, code_buffer.append("&&"), );
@@ -336,12 +408,11 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     case EOpGreaterThan:NODE_VISIT_FUNC(, code_buffer.append(">"), );
     case EOpLessThanEqual:NODE_VISIT_FUNC(, code_buffer.append("<="), );
     case EOpGreaterThanEqual:NODE_VISIT_FUNC(, code_buffer.append(">="), );
-
-    case EOpVectorTimesScalar:NODE_VISIT_FUNC(, code_buffer.append("*"), );
-    case EOpMatrixTimesVector:NODE_VISIT_FUNC(, code_buffer.append("*"), );
+    case EOpVectorTimesScalar:NODE_VISIT_FUNC(binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("*");, ;);
+    case EOpMatrixTimesVector:NODE_VISIT_FUNC(, code_buffer.append("*"); binary_const_union_in_right(); , binary_const_union_post_right(););
     case EOpMatrixTimesScalar:NODE_VISIT_FUNC(, code_buffer.append("*"), );
         
-    case EOpVectorSwizzle:NODE_VISIT_FUNC(, code_buffer.append("."), );
+    case EOpVectorSwizzle:NODE_VISIT_FUNC(, code_buffer.append("."); parser_context.is_vector_swizzle = true; , parser_context.is_vector_swizzle = false);
     default:
     {
         assert_t(false);
@@ -643,13 +714,13 @@ void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         {
         case EbtInt:
         {
-            if (node->isLiteral())
+            if (parser_context.is_vector_swizzle)
             {
-                code_buffer.append(std::to_string(constUnion[i].getIConst()).c_str());
+                code_buffer.insert(code_buffer.end(), unionConvertToChar(constUnion[i].getIConst()));
             }
             else
             {
-                code_buffer.insert(code_buffer.end(), unionConvertToChar(constUnion[i].getIConst()));
+                code_buffer.append(std::to_string(constUnion[i].getIConst()).c_str());
             }
             break;
         }
@@ -663,6 +734,11 @@ void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
             assert_t(false);
             break;
         }
+        }
+
+        if (parser_context.is_vector_times_scalar && (i != (size - 1)))
+        {
+            code_buffer.append(",");
         }
     }
 }
