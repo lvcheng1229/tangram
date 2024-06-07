@@ -2,7 +2,19 @@
 #include <assert.h>
 #include <set>
 
+//todo: 
+// output double 1.0000 -> 1.
+
 #define assert_t(...) assert(__VA_ARGS__);
+
+#define NODE_VISIT_FUNC(PRE,IN,POST)\
+{if (visit == EvPreVisit){\
+PRE;\
+}else if (visit == EvInVisit){\
+IN;\
+}else if (visit == EvPostVisit){\
+POST;\
+}break;}\
 
 using namespace glslang;
 
@@ -25,8 +37,8 @@ public:
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
 private:
-    void outputConstantUnion(const TIntermTyped* node, const TConstUnionArray& constUnion);
-    TString getTypeText(const TType& type);
+    void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
+    TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false);
 
 protected:
     bool enable_line_feed_optimize = false;
@@ -41,11 +53,11 @@ void TTanGramTraverser::preTranverse(TIntermediate* intermediate)
 {
     code_buffer.append("#version ");
     code_buffer.append(std::to_string(intermediate->getVersion()).c_str());
-    code_buffer.append(" es");
+    code_buffer.append(" es\n");
 }
 
 
-TString TTanGramTraverser::getTypeText(const TType& type)
+TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName)
 {
     TString type_string;
 
@@ -53,12 +65,17 @@ TString TTanGramTraverser::getTypeText(const TType& type)
     const auto appendUint = [&](unsigned int u) { type_string.append(std::to_string(u).c_str()); };
     const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
 
-    // get qualifiers
+    if(getQualifiers)
     {
         const TQualifier& qualifier = type.getQualifier();
         if (qualifier.hasLayout())
         {
             appendStr("layout(");
+            if (qualifier.hasAnyLocation())
+            {
+                appendStr(" location=");
+                appendUint(qualifier.layoutLocation);
+            }
             if (qualifier.hasPacking())
             {
                 appendStr(TQualifier::getLayoutPackingString(qualifier.layoutPacking));
@@ -69,10 +86,7 @@ TString TTanGramTraverser::getTypeText(const TType& type)
         }
     }
 
-    if (type.isArray())
-    {
-        assert_t(false);
-    }
+    
 
     if (type.isParameterized())
     {
@@ -102,9 +116,49 @@ TString TTanGramTraverser::getTypeText(const TType& type)
         appendInt(type.getVectorSize());
     }
 
+    bool is_vec = type.isVector();
+    bool is_blk = (type.getBasicType() == EbtBlock);
+
+    if ((!is_vec) && (!is_blk))
+    {
+        appendStr(type.getBasicTypeString().c_str());
+    }
+
     if (type.getBasicType() == EbtBlock)
     {
         type_string.append(type.getTypeName());
+    }
+
+    if (getSymbolName)
+    {
+        appendStr(" ");
+        appendStr(type.getFieldName().c_str());
+    }
+
+    if (type.isArray())
+    {
+        const TArraySizes* array_sizes = type.getArraySizes();
+        for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
+        {
+            int size = array_sizes->getDimSize(i);
+            if (size == UnsizedArraySize && i == 0 && array_sizes->isVariablyIndexed())
+            {
+                assert_t(false);
+            }
+            else
+            {
+                if (size == UnsizedArraySize)
+                {
+                    assert_t(false);
+                }
+                else
+                {
+                    appendStr("[");
+                    appendInt(array_sizes->getDimSize(i));
+                    appendStr("]");
+                }
+            }
+        }
     }
 
     if (type.isStruct() && type.getStruct())
@@ -117,7 +171,7 @@ TString TTanGramTraverser::getTypeText(const TType& type)
             TType* struct_mem_type = (*structure)[i].type;
             bool hasHiddenMember = struct_mem_type->hiddenMember();
             assert_t(hasHiddenMember == false);
-            type_string.append(getTypeText(*struct_mem_type));
+            type_string.append(getTypeText(*struct_mem_type, false, true));
             appendStr(";");
             if (!enable_line_feed_optimize)
             {
@@ -133,11 +187,11 @@ TString TTanGramTraverser::getTypeText(const TType& type)
 bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
     TOperator node_operator = node->getOp();
-    if (visit == EvPreVisit)
+    switch (node_operator)
     {
-        switch (node_operator)
-        {
-        case EOpAssign:
+    case EOpAssign:
+    {
+        if (visit == EvPreVisit)
         {
             bool is_declared = false;
             if (node->getLeft()->getAsSymbolNode() != nullptr)
@@ -145,14 +199,8 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
                 TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
                 long long symbol_id = symbol_node->getId();
                 auto iter = declared_symbols_id.find(symbol_id);
-                if (iter == declared_symbols_id.end())
-                {
-                    declared_symbols_id.insert(symbol_id);
-                }
-                else
-                {
-                    is_declared = true;
-                }
+                if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
+                else { is_declared = true; }
             }
 
             if (is_declared == false)
@@ -160,10 +208,23 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
                 code_buffer.append(getTypeText(node->getType()));
                 code_buffer.append(" ");
             }
-
-            break;
         }
-        case EOpIndexDirectStruct:
+        else if (visit == EvInVisit)
+        {
+            if (!enable_white_space_optimize) { code_buffer.append(" "); }
+            code_buffer.append("=");
+            if (!enable_white_space_optimize) { code_buffer.append(" "); }
+        }
+        else if (visit == EvPostVisit)
+        {
+            code_buffer.append(";");;
+            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        }
+        break;
+    }
+    case EOpIndexDirectStruct:
+    {
+        if (visit == EvPreVisit)
         {
             bool reference = node->getLeft()->getType().isReference();
             const TTypeList* members = reference ? node->getLeft()->getType().getReferentType()->getStruct() : node->getLeft()->getType().getStruct();
@@ -174,110 +235,182 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             // no need to output the struct name
             node->setLeft(nullptr);
             node->setRight(nullptr);
+        }
+        else if (visit == EvInVisit)
+        {
 
-            break;
         }
-        case EOpSub:
-        case EOpVectorSwizzle:
+        else if (visit == EvPostVisit)
         {
-            //do nothing
-            break;
+
         }
-        default:
-        {
-            assert_t(false);
-            break;
-        }
-        }
-        
+        break;
     }
-    else if (visit == EvInVisit)
+    case EOpIndexDirect: NODE_VISIT_FUNC(, code_buffer.append("."), );
+    case EOpSub:NODE_VISIT_FUNC(, code_buffer.append("-"), );
+    case EOpVectorSwizzle:NODE_VISIT_FUNC(, code_buffer.append("."), );
+    default:
     {
-        switch (node_operator)
-        {
-        case EOpAssign:
-        {
-            if (!enable_white_space_optimize)
-            {
-                code_buffer.append(" ");
-            }
-
-            code_buffer.append("=");
-
-            if (!enable_white_space_optimize)
-            {
-                code_buffer.append(" ");
-            }
-
-            break;
-        }
-        case EOpSub:
-        {
-            if (!enable_white_space_optimize)
-            {
-                code_buffer.append(" ");
-            }
-
-            code_buffer.append("-");
-
-            if (!enable_white_space_optimize)
-            {
-                code_buffer.append(" ");
-            }
-            break;
-        }
-        case EOpVectorSwizzle:
-        {
-            code_buffer.append(".");
-            break;
-        }
-        case EOpIndexDirectStruct:
-        {
-            // do nothing
-            break;
-        }
-        default:
-        {
-            assert_t(false);
-            break;
-        }
-        }
+        assert_t(false);
+        break;
     }
-    else if (visit == EvPostVisit)
-    {
-        switch (node_operator)
-        {
-        case EOpAssign:
-        {
-            code_buffer.append(";");;
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.append("\n");
-            }
-            break;
-        }
-        case EOpIndexDirectStruct:
-        case EOpSub:
-        case EOpVectorSwizzle:
-        {
-            //do nothing
-            break;
-        }
-        default:
-        {
-            assert_t(false);
-            break;
-        }
-        };
-        
-    }
+    };
+
+    //if (visit == EvPreVisit)
+    //{
+    //    switch (node_operator)
+    //    {
+    //    case EOpAssign:
+    //    {
+    //        bool is_declared = false;
+    //        if (node->getLeft()->getAsSymbolNode() != nullptr)
+    //        {
+    //            TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+    //            long long symbol_id = symbol_node->getId();
+    //            auto iter = declared_symbols_id.find(symbol_id);
+    //            if (iter == declared_symbols_id.end())
+    //            {
+    //                declared_symbols_id.insert(symbol_id);
+    //            }
+    //            else
+    //            {
+    //                is_declared = true;
+    //            }
+    //        }
+    //
+    //        if (is_declared == false)
+    //        {
+    //            code_buffer.append(getTypeText(node->getType()));
+    //            code_buffer.append(" ");
+    //        }
+    //
+    //        break;
+    //    }
+    //    case EOpIndexDirectStruct:
+    //    {
+    //        bool reference = node->getLeft()->getType().isReference();
+    //        const TTypeList* members = reference ? node->getLeft()->getType().getReferentType()->getStruct() : node->getLeft()->getType().getStruct();
+    //        int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
+    //        const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
+    //        code_buffer.append(index_direct_struct_str);
+    //
+    //        // no need to output the struct name
+    //        node->setLeft(nullptr);
+    //        node->setRight(nullptr);
+    //
+    //        break;
+    //    }
+    //    case EOpIndexDirect: NODE_VISIT_FUNC(, code_buffer.append("."), );
+    //    case EOpSub:
+    //    case EOpVectorSwizzle:
+    //    {
+    //        //do nothing
+    //        break;
+    //    }
+    //    default:
+    //    {
+    //        assert_t(false);
+    //        break;
+    //    }
+    //    }
+    //    
+    //}
+    //else if (visit == EvInVisit)
+    //{
+    //    switch (node_operator)
+    //    {
+    //    case EOpAssign:
+    //    {
+    //        if (!enable_white_space_optimize)
+    //        {
+    //            code_buffer.append(" ");
+    //        }
+    //
+    //        code_buffer.append("=");
+    //
+    //        if (!enable_white_space_optimize)
+    //        {
+    //            code_buffer.append(" ");
+    //        }
+    //
+    //        break;
+    //    }
+    //    case EOpSub:
+    //    {
+    //        if (!enable_white_space_optimize)
+    //        {
+    //            code_buffer.append(" ");
+    //        }
+    //
+    //        code_buffer.append("-");
+    //
+    //        if (!enable_white_space_optimize)
+    //        {
+    //            code_buffer.append(" ");
+    //        }
+    //        break;
+    //    }
+    //    case EOpVectorSwizzle:
+    //    {
+    //        code_buffer.append(".");
+    //        break;
+    //    }
+    //    case EOpIndexDirectStruct:
+    //    {
+    //        // do nothing
+    //        break;
+    //    }
+    //    default:
+    //    {
+    //        assert_t(false);
+    //        break;
+    //    }
+    //    }
+    //}
+    //else if (visit == EvPostVisit)
+    //{
+    //    switch (node_operator)
+    //    {
+    //    case EOpAssign:
+    //    {
+    //        code_buffer.append(";");;
+    //        if (!enable_line_feed_optimize)
+    //        {
+    //            code_buffer.append("\n");
+    //        }
+    //        break;
+    //    }
+    //    case EOpIndexDirectStruct:
+    //    case EOpSub:
+    //    case EOpVectorSwizzle:
+    //    {
+    //        //do nothing
+    //        break;
+    //    }
+    //    default:
+    //    {
+    //        assert_t(false);
+    //        break;
+    //    }
+    //    };
+    //    
+    //}
 
     return true;
 }
 
-bool TTanGramTraverser::visitUnary(TVisit, TIntermUnary* node)
+bool TTanGramTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 {
-    return false;
+    TOperator node_operator = node->getOp();
+    switch (node_operator)
+    {
+    case EOpNormalize: NODE_VISIT_FUNC(code_buffer.append("normalize("); , , code_buffer.append(")"); );
+    case EOpNegative:NODE_VISIT_FUNC(code_buffer.append("-");, , );
+    default:
+        assert_t(false);
+        break;
+    }
+    return true;
 }
 
 bool TTanGramTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
@@ -327,6 +460,49 @@ bool TTanGramTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
                 code_buffer.insert(code_buffer.end(), '\n');
             }
         }
+        break;
+    }
+    case EOpConstructVec4:
+    {
+        if (visit == EvPreVisit)
+        {
+            code_buffer.append("vec4(");
+        }
+        else if (visit == EvInVisit)
+        {
+            code_buffer.append(",");
+        }
+        else if (visit == EvPostVisit)
+        {
+            code_buffer.append(")");
+        }
+        
+        
+        break;
+    }
+    case EOpLinkerObjects:
+    {
+        if (visit == EvPreVisit)
+        {
+
+        }
+        else if (visit == EvInVisit)
+        {
+            code_buffer.append(";");
+            if (!enable_line_feed_optimize)
+            {
+                code_buffer.insert(code_buffer.end(), '\n');
+            }
+        }
+        else if (visit == EvPostVisit)
+        {
+            code_buffer.append(";");
+            if (!enable_line_feed_optimize)
+            {
+                code_buffer.insert(code_buffer.end(), '\n');
+            }
+        }
+        break;
     }
     }
     return true;
@@ -343,7 +519,12 @@ static char unionConvertToChar(int index)
     return const_indices[index];
 }
 
-void TTanGramTraverser::outputConstantUnion(const TIntermTyped* node, const TConstUnionArray& constUnion)
+static TString OutputDouble(double value)
+{
+    return std::to_string(value).c_str();
+};
+
+void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion)
 {
     int size = node->getType().computeNumComponents();
     for (int i = 0; i < size; i++)
@@ -353,7 +534,20 @@ void TTanGramTraverser::outputConstantUnion(const TIntermTyped* node, const TCon
         {
         case EbtInt:
         {
-            code_buffer.insert(code_buffer.end(), unionConvertToChar(constUnion[i].getIConst()));
+            if (node->isLiteral())
+            {
+                assert_t(false);
+            }
+            else
+            {
+                code_buffer.insert(code_buffer.end(), unionConvertToChar(constUnion[i].getIConst()));
+            }
+            break;
+        }
+        case EbtDouble:
+        {
+            assert_t(node->isLiteral());
+            code_buffer.append(OutputDouble(constUnion[i].getDConst()));
             break;
         }
         default:
@@ -391,6 +585,7 @@ void TTanGramTraverser::visitSymbol(TIntermSymbol* node)
     if (is_declared == false)
     {
         code_buffer.append(getTypeText(node->getType()));
+        code_buffer.append(" ");
     }
 
     code_buffer.append(node->getName());
@@ -487,7 +682,7 @@ void ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths)
     }
 
     tangram_tranverser.preTranverse(intermediate);
-	intermediate->getTreeRoot()->traverse(&tangram_tranverser);
+ 	intermediate->getTreeRoot()->traverse(&tangram_tranverser);
 
 
     
