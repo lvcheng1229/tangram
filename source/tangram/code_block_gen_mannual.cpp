@@ -188,12 +188,29 @@ size_t shader_code_replace(const void* src_code_str, int size, char* dst_code)
 	NOT_FOUND_RETURN(find_token_result);
 	code_var_map.push_back(SVariableMap{ world_pos_var_str ,std::string("_f") });
 
+	for (int idx = 0; idx < code_var_map.size(); idx++)
+	{
+		SVariableMap& var_map = code_var_map[idx];
+		if (var_map.src_string[0] != char('_'))
+		{
+			return size;
+		}
+
+		size_t var_pos = temp_str.find(var_map.src_string);
+		if (var_pos > clu_shading_begin_pos)
+		{
+			return size;
+		}
+	}
+
 	size_t  sub_svw_var_pos = temp_str.find(svw_var_str, clu_shading_begin_pos);
 	if (sub_svw_var_pos != std::string::npos)
 	{
 		std::string frag_coord_w("1.0/gl_FragCoord.w");
 		temp_str.replace(temp_str.begin() + sub_svw_var_pos, temp_str.begin() + sub_svw_var_pos + svw_var_str.size(), frag_coord_w.data(), frag_coord_w.size());
 	}
+
+
 
 	for (int idx = 0; idx < code_var_map.size(); idx++)
 	{

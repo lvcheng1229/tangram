@@ -7,6 +7,8 @@
 #include "zstd/zdict.h"
 #include "tangram/tangram.h"
 
+#include "tangram/glslang_headers.h"
+
 #define TEXT(text) TEXT_I(text)
 #define TEXT_I(...) #__VA_ARGS__
 
@@ -14,6 +16,94 @@
 #define TEXT_CAT_I(a, b) a ## b
 
 #define ABSOLUTE_PATH(x)  TEXT_CAT(TEXT(TANGRAM_DIR), x);
+
+static char cluster_shading_code[4753] = "\
+if (MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceData.w != 0.0)\n\
+{\
+	uvec2 _734 = uvec2(gl_FragCoord.xy) >> (uvec2(MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceDataEx.x) & uvec2(31u));\
+	uint _744 = (((min(uint(max(0.0, log2((1.0 / gl_FragCoord.w * MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceData.x) + MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceData.y) * MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceData.z)), (MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryData.w - 1u)) * MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryData.y) + _734.y) * MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryData.x) + _734.x;\
+	uint _745 = _744 * 2u;\
+	uvec4 _747 = texelFetch(ps1, int(_745));\
+	uint _748 = _747.x;\
+	uint _751 = _744 * MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryData.z;\
+	highp vec3 _755;\
+	_755 = vec3(0.0);\
+	highp vec3 _756;\
+	for (uint _758 = 0u; _758 < _748; _755 = _756, _758++)\
+	{\
+		uint _767 = texelFetch(ps2, int(_751 + _758)).x * 3u;\
+		if ((Primitive_LightingChannelMask & floatBitsToUint(texelFetch(ps0, int(_767)).w)) != 0u)\
+		{\
+			highp vec4 _778 = texelFetch(ps0, int(_767 + 1u));\
+			highp vec4 _780 = texelFetch(ps0, int(_767 + 2u));\
+			highp vec3 _782 = texelFetch(ps0, int(_767)).xyz - _f;\
+			highp float _783 = dot(_782, _782);\
+			highp float _788 = _778.w;\
+			highp float _790 = _783 * (_788 * _788);\
+			highp float _793 = clamp(1.0 - (_790 * _790), 0.0, 1.0);\
+			highp vec3 _798 = _782 * _788;\
+			highp float _799 = _780.w;\
+			_756 = _755 + ((_778.xyz * (((_799 == 0.0) ? ((_793 * _793) * (1.0 / (_783 + 1.0))) : pow(clamp(1.0 - dot(_798, _798), 0.0, 1.0), _799)) * clamp(dot(_b, _782 * inversesqrt(_783)), 0.0, 1.0))) * _c);\
+		}\
+		else\
+		{\
+			_756 = _755;\n\
+		}\
+	}\
+	highp vec3 _923;\
+	if (MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceDataEx.y != 0u)\n\
+	{\
+		uvec4 _817 = texelFetch(ps1, int(_745 + 1u));\
+		uint _818 = _817.x;\
+		uint _821 = _751 + MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceDataEx.z;\
+		highp vec3 _823;\
+		_823 = _755;\
+		highp vec3 _824;\
+		for (uint _826 = 0u; _826 < _818; _823 = _824, _826++)\
+		{\
+			uvec4 _833 = texelFetch(ps2, int(_821 + _826));\n\
+			uint _834 = _833.x;\
+			if((Primitive_LightingChannelMask & floatBitsToUint(MobileBasePass.MobileBasePass_ClusteredShading_ViewLightSpotAngles[_834].z)) != 0u)\n\
+			{\
+				highp vec3 _855 = MobileBasePass.MobileBasePass_ClusteredShading_ViewLightPositionAndInvRadius[_834].xyz - _f;\
+				highp float _856 = dot(_855, _855);\
+				highp vec3 _858 = _855 * inversesqrt(_856);\
+				highp float _863 = _856 * (MobileBasePass.MobileBasePass_ClusteredShading_ViewLightPositionAndInvRadius[_834].w * MobileBasePass.MobileBasePass_ClusteredShading_ViewLightPositionAndInvRadius[_834].w);\n\
+				highp float _866 = clamp(1.0 - (_863 * _863), 0.0, 1.0);\
+				highp vec3 _871 = _855 * MobileBasePass.MobileBasePass_ClusteredShading_ViewLightPositionAndInvRadius[_834].w;\
+				highp vec2 _894;\
+				if (MobileBasePass.MobileBasePass_ClusteredShading_SpotLightTangentAndOvalScale[_834].w != 0.0)\
+				{\
+					highp float _887 = abs(dot(_858, MobileBasePass.MobileBasePass_ClusteredShading_SpotLightTangentAndOvalScale[_834].xyz));\n\
+					highp vec2 _893 = MobileBasePass.MobileBasePass_ClusteredShading_ViewLightSpotAngles[_834].xy;\
+					_893.x = MobileBasePass.MobileBasePass_ClusteredShading_ViewLightSpotAngles[_834].x * (((_887 * _887) * MobileBasePass.MobileBasePass_ClusteredShading_SpotLightTangentAndOvalScale[_834].w) + 1.0);\
+					_894 = _893;\
+				}\
+				else\
+				{\
+					_894 = MobileBasePass.MobileBasePass_ClusteredShading_ViewLightSpotAngles[_834].xy;\n\
+				}\
+				highp float _908 = clamp(dot(vec4(_858, -_894.x), vec4(MobileBasePass.MobileBasePass_ClusteredShading_ViewLightDirectionAndSpecularScale[_834].xyz, 1.0)) * _894.y, 0.0, 1.0);\
+				highp float _909 = _908 * _908;\n\
+				_824 = _823 + ((mix(MobileBasePass.MobileBasePass_ClusteredShading_ViewLightOuterConeColor[_834].xyz, MobileBasePass.MobileBasePass_ClusteredShading_ViewLightColorAndFalloffExponent[_834].xyz, vec3(_909)) * (((((MobileBasePass.MobileBasePass_ClusteredShading_ViewLightColorAndFalloffExponent[_834].w == 0.0) ? ((_866 * _866) * (1.0 / (_856 + 1.0))) : pow(clamp(1.0 - dot(_871, _871), 0.0, 1.0), MobileBasePass.MobileBasePass_ClusteredShading_ViewLightColorAndFalloffExponent[_834].w)) * _909) * 0.318359375) * clamp(dot(_b, _858), 0.0, 1.0))) * (_c + (_d * abs(MobileBasePass.MobileBasePass_ClusteredShading_ViewLightDirectionAndSpecularScale[_834].w))));\
+			}\
+			else\
+			{\
+				_824 = _823;\n\
+			}\
+		}\
+		_923 = _823;\
+	}\
+	else\
+	{\
+		_923 = _755;\n\
+	}\
+	_a = _923;\
+}\
+else\
+{\
+	_a = vec3(0.0);\
+} ";
 
 void LoadBuffer(std::vector<char>& buffer, const std::string& dict_file)
 {
@@ -137,9 +227,124 @@ struct CShaderArchive
 	}
 };
 
+void MannualCodeBlockGenTest()
+{
+	ZSTD_DCtx* Context = ZSTD_createDCtx();
+
+	std::vector<char> dict_buffer;
+	std::string dict_path = ABSOLUTE_PATH("/source/resource/MSDKPushMsg.json");
+	LoadBuffer(dict_buffer, dict_path);
+	ZSTD_DDict* Zstd_ddict = ZSTD_createDDict(dict_buffer.data(), dict_buffer.size());
+
+	std::string shader_path = ABSOLUTE_PATH("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
+	std::ifstream shader_data = std::ifstream(shader_path, std::ios::in | std::ios::binary);
+	CShaderArchive shader_archive;
+	shader_archive.Serialize(shader_data);
+	std::streamsize shader_offset = shader_data.tellg();
+
+	glslang::InitializeProcess();
+
+	int success_num = 0;
+
+	for (int idx = 0; idx < shader_archive.ShaderEntries.size(); idx++)
+	{
+		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
+		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
+
+		std::vector<char> shader_code_data;
+		shader_code_data.resize(shader_entry.Size);
+		shader_data.read((char*)(shader_code_data.data()), shader_entry.Size);
+
+		if (shader_entry.Frequency != 3)
+		{
+			continue;
+		}
+
+		std::vector<char> shader_code_decompressed_data;
+		shader_code_decompressed_data.resize(shader_entry.UncompressedSize);
+		size_t Code = ZSTD_decompress_usingDDict(Context, shader_code_decompressed_data.data(), shader_code_decompressed_data.size(), shader_code_data.data(), shader_code_data.size(), Zstd_ddict);
+
+		size_t src_code_size = shader_code_decompressed_data.size();
+		std::vector<char> dst_code;
+		dst_code.resize(src_code_size);
+		size_t replaced_size = shader_code_replace(shader_code_decompressed_data.data(), shader_code_decompressed_data.size(), dst_code.data());
+
+		bool b_replaced = false;
+		if (replaced_size != src_code_size)
+		{
+			char magic_num[11] = { 'i','n', 't', ' ', 'c', 'l',  '=', '4' , '2',';','\0' };
+			size_t new_shader_size = replace_code_block(dst_code.data(), replaced_size, magic_num, 10, cluster_shading_code, 4752);
+
+			int sharp_pos = 0;
+			for (int idx = 0; idx < new_shader_size; idx++)
+			{
+				if (dst_code[idx] == '#')
+				{
+					if (dst_code[idx + 1] == 'v')
+					{
+						sharp_pos = idx;
+						break;
+					}
+				}
+			}
+
+			int code_main_size = new_shader_size - sharp_pos;
+			if (code_main_size < 0)
+			{
+				assert(false);
+			}
+
+			glslang::TShader shader(EShLangFragment);
+			{
+				const int defaultVersion = 100;
+				const EProfile defaultProfile = ENoProfile;
+				const bool forceVersionProfile = false;
+				const bool isForwardCompatible = false;
+
+				EShMessages messages = EShMsgCascadingErrors;
+				messages = static_cast<EShMessages>(messages | EShMsgAST);
+				messages = static_cast<EShMessages>(messages | EShMsgHlslLegalization);
+
+				const char* debug_strings = shader_code_decompressed_data.data() + sharp_pos;
+
+				char* shader_strings = dst_code.data() + sharp_pos;
+
+
+				int reesrve_index = code_main_size - 1;
+				for (; reesrve_index > 0; reesrve_index--)
+				{
+					char pre_char = shader_strings[reesrve_index - 1];
+					char cur_char = shader_strings[reesrve_index];
+					if (pre_char != '\0' && cur_char == '\0')
+					{
+						shader_strings[reesrve_index] = char(- 1);
+					}
+				}
+
+				const int shader_lengths = static_cast<int>(reesrve_index + 1);
+				shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
+				shader.setEntryPoint("main");
+				bool success = shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
+
+				const char* info_log = shader.getInfoLog();
+
+				if (success)
+				{
+					success_num++;
+				}
+				assert(success == true);
+			}
+		}
+	}
+
+	glslang::FinalizeProcess();
+}
 
 int main()
 {
+	//MannualCodeBlockGenTest();
+	//return 0;
+
 	{
 		std::vector<char> dict_buffer;
 		std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
