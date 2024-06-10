@@ -115,11 +115,13 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         if (qualifier.flat)
         {
             appendStr(" flat");
+            appendStr(" ");
         }
             
         //bool should_out_storage_qualifier = ((basic_type == EbtBlock) || (basic_type == EbtSampler));
         bool should_out_storage_qualifier = true;
-        if (type.getQualifier().storage == EvqTemporary)
+        if (type.getQualifier().storage == EvqTemporary ||
+            type.getQualifier().storage == EvqGlobal)
         {
             should_out_storage_qualifier = false;
         }
@@ -313,13 +315,28 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
         if (visit == EvPreVisit)
         {
             bool is_declared = false;
-            if (node->getLeft()->getAsSymbolNode() != nullptr)
+            TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+
+            if (symbol_node == nullptr)
             {
-                TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+                TIntermBinary* binary_node = node->getLeft()->getAsBinaryNode();
+                if (binary_node)
+                {
+                    symbol_node = binary_node->getLeft()->getAsSymbolNode();
+                }
+            }
+
+            if (symbol_node != nullptr)
+            {
                 long long symbol_id = symbol_node->getId();
                 auto iter = declared_symbols_id.find(symbol_id);
                 if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
                 else { is_declared = true; }
+
+                if (symbol_node->getName() == "_191")
+                {
+                    int aa = 0;
+                }
             }
 
             if (is_declared == false)
@@ -466,6 +483,13 @@ bool TTanGramTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpReflect: NODE_VISIT_FUNC(code_buffer.append("reflect(");, , code_buffer.append(")"); );
 
     case EOpNegative:NODE_VISIT_FUNC(code_buffer.append("-");, , );
+
+    // GLSL spec 4.5
+    // 4.1.10. Implicit Conversions
+    case EOpConvUintToInt:     NODE_VISIT_FUNC(code_buffer.append("int(");,, code_buffer.append(")"););
+
+    case EOpConvUintToFloat:NODE_VISIT_FUNC();
+
     default:
         assert_t(false);
         break;
@@ -661,14 +685,90 @@ bool TTanGramTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
         }
         break;
     }
+    case EOpTextureQuerySize:NODE_VISIT_FUNC(code_buffer.append("textureSize("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureQueryLod:NODE_VISIT_FUNC(code_buffer.append("textureQueryLod("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureQueryLevels:NODE_VISIT_FUNC(code_buffer.append("textureQueryLevels("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureQuerySamples:NODE_VISIT_FUNC(code_buffer.append("textureSamples("), code_buffer.append(","), code_buffer.append(")"));
     case EOpTexture:NODE_VISIT_FUNC(code_buffer.append("texture("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureProj:NODE_VISIT_FUNC(code_buffer.append("textureProj("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureLod:NODE_VISIT_FUNC(code_buffer.append("textureLod("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureOffset:NODE_VISIT_FUNC(code_buffer.append("textureOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureFetch:NODE_VISIT_FUNC(code_buffer.append("texelFetch("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureFetchOffset:NODE_VISIT_FUNC(code_buffer.append("textureFetchOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureProjOffset:NODE_VISIT_FUNC(code_buffer.append("textureProjOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureLodOffset:NODE_VISIT_FUNC(code_buffer.append("textureLodOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureProjLod:NODE_VISIT_FUNC(code_buffer.append("textureProjLod("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGrad:NODE_VISIT_FUNC(code_buffer.append("textureGrad("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGradOffset:NODE_VISIT_FUNC(code_buffer.append("textureGradOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureProjGrad:NODE_VISIT_FUNC(code_buffer.append("textureProjGrad("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureProjGradOffset:NODE_VISIT_FUNC(code_buffer.append("textureProjGradOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGather:NODE_VISIT_FUNC(code_buffer.append("textureGather("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGatherOffset:NODE_VISIT_FUNC(code_buffer.append("textureGatherOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureClamp:NODE_VISIT_FUNC(code_buffer.append("textureClamp("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureOffsetClamp:NODE_VISIT_FUNC(code_buffer.append("textureOffsetClamp("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGradClamp:NODE_VISIT_FUNC(code_buffer.append("textureGradClamp("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGradOffsetClamp:NODE_VISIT_FUNC(code_buffer.append("textureGradOffsetClamp("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGatherLod:NODE_VISIT_FUNC(code_buffer.append("texture("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGatherLodOffset:NODE_VISIT_FUNC(code_buffer.append("textureGatherLodOffset("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpTextureGatherLodOffsets:NODE_VISIT_FUNC(code_buffer.append("textureGatherLodOffsets("), code_buffer.append(","), code_buffer.append(")"));
     }
     return true;
 }
 
 bool TTanGramTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
-    return false;
+    if (node->getShortCircuit() == false)
+    {
+        assert_t(false);
+    }
+
+    if (node->getFlatten())
+    {
+        assert_t(false);
+    }
+
+    if (node->getDontFlatten())
+    {
+        assert_t(false);
+    }
+
+    code_buffer.append("if(");
+
+    //condition
+    incrementDepth(node);
+    {
+        node->getCondition()->traverse(this);
+        code_buffer.append("){");
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        
+    }
+
+    {
+        if (node->getTrueBlock())
+        {
+            node->getTrueBlock()->traverse(this);
+        }
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        code_buffer.append("}");
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+    }
+
+    {
+        if (node->getFalseBlock())
+        {
+            code_buffer.append("else{");
+            node->getFalseBlock()->traverse(this);
+            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+            code_buffer.append("}");
+            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        }
+    }
+
+
+    decrementDepth();
+    
+
+    return false;  /* visit the selection node on high level */
 }
 
 static char unionConvertToChar(int index)
@@ -727,6 +827,12 @@ void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         case EbtDouble:
         {
             code_buffer.append(OutputDouble(constUnion[i].getDConst()));
+            break;
+        }
+        case EbtUint:
+        {
+            code_buffer.append(std::to_string(constUnion[i].getUConst()).c_str());
+            code_buffer.append("u");
             break;
         }
         default:
@@ -794,14 +900,72 @@ bool TTanGramTraverser::visitLoop(TVisit, TIntermLoop* node)
     return false;
 }
 
-bool TTanGramTraverser::visitBranch(TVisit, TIntermBranch* node)
+bool TTanGramTraverser::visitBranch(TVisit visit, TIntermBranch* node)
 {
-    return false;
+    TOperator node_operator = node->getFlowOp();
+    switch (node->getFlowOp())
+    {
+    case EOpDefault: NODE_VISIT_FUNC(
+        code_buffer.append("default:");
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        //code_buffer.append("{");
+        //if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        , 
+           , 
+        //code_buffer.append("}"); 
+        //if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        );
+    case EOpBreak:NODE_VISIT_FUNC(code_buffer.append("break;");,,);
+    }
+
+    if (node->getExpression())
+    {
+        assert_t(false);
+    }
+
+    return true;
 }
 
-bool TTanGramTraverser::visitSwitch(TVisit, TIntermSwitch* node)
+bool TTanGramTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
 {
-    return false;
+    code_buffer.append("switch(");
+    if (node->getFlatten())
+    {
+        assert_t(false);
+    }
+
+    if (node->getDontFlatten())
+    {
+        assert_t(false);
+    }
+    
+    // condition
+    {
+        incrementDepth(node);
+        node->getCondition()->traverse(this);
+        code_buffer.append(")");
+        if (!enable_line_feed_optimize)
+        {
+            code_buffer.append("\n");
+        }
+        decrementDepth();
+    }
+
+    // body
+    {
+        incrementDepth(node);
+        code_buffer.append("{");
+        node->getBody()->traverse(this);
+        code_buffer.append("}");
+        if (!enable_line_feed_optimize)
+        {
+            code_buffer.append("\n");
+        }
+        decrementDepth();
+    }
+
+
+    return false; /* visit the switch node on high level */
 }
 
 
