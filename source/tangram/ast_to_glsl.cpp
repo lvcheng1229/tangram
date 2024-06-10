@@ -1,66 +1,7 @@
-#include "glslang_headers.h"
-#include <assert.h>
-#include <set>
+#include "ast_tranversar_private.h"
 
-//todo: 
-// output double 1.0000 -> 1.
-// pc5_h[0].xyzw.xyz -> pc5_h[0].xyz
 
-#define assert_t(...) assert(__VA_ARGS__);
-
-#define NODE_VISIT_FUNC(PRE,IN,POST)\
-{if (visit == EvPreVisit){\
-PRE;\
-}else if (visit == EvInVisit){\
-IN;\
-}else if (visit == EvPostVisit){\
-POST;\
-}break;}\
-
-using namespace glslang;
-
-class TTanGramTraverser : public TIntermTraverser {
-public:
-    TTanGramTraverser() :
-        TIntermTraverser(true, true, true, false) //
-    { }
-
-    void preTranverse(TIntermediate* intermediate);
-    inline const std::string& getCodeBuffer() { return code_buffer; };
-
-    virtual bool visitBinary(TVisit, TIntermBinary* node);
-    virtual bool visitUnary(TVisit, TIntermUnary* node);
-    virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-    virtual bool visitSelection(TVisit, TIntermSelection* node);
-    virtual void visitConstantUnion(TIntermConstantUnion* node);
-    virtual void visitSymbol(TIntermSymbol* node);
-    virtual bool visitLoop(TVisit, TIntermLoop* node);
-    virtual bool visitBranch(TVisit, TIntermBranch* node);
-    virtual bool visitSwitch(TVisit, TIntermSwitch* node);
-
-private:
-    void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
-    TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
-    TString getArraySize(const TType& type);
-
-protected:
-    bool enable_line_feed_optimize = false;
-    bool enable_white_space_optimize = true;
-    bool ignore_medium_presion_out = true;
-
-    struct SParserContext
-    {
-        bool is_vector_swizzle = false;
-        bool is_vector_times_scalar = false;
-    };
-
-    SParserContext parser_context;
-
-    std::string code_buffer;
-    std::set<long long> declared_symbols_id;
-};
-
-void TTanGramTraverser::preTranverse(TIntermediate* intermediate)
+void TAstToGLTraverser::preTranverse(TIntermediate* intermediate)
 {
     code_buffer.append("#version ");
     code_buffer.append(std::to_string(intermediate->getVersion()).c_str());
@@ -79,10 +20,35 @@ void TTanGramTraverser::preTranverse(TIntermediate* intermediate)
 
     code_buffer.append("precision mediump float;\n");
     code_buffer.append("precision highp int;\n");
+
+    intermediate->getTreeRoot()->traverse(&symbol_scope_traverser);
 }
 
+void TAstToGLTraverser::declareSubScopeSymbol()
+{
+    auto symbols_max_line = symbol_scope_traverser.getSymbolMaxLine();
+    int scope_max_line = subscope_tranverser.getSubScopeMaxLine();
+    for (auto& iter : subscope_tranverser.getSubScopeSymbols())
+    {
+        TIntermSymbol* symbol_node = iter.second;
+        int symbol_max_line = symbols_max_line->find(symbol_node->getId())->second;
 
-TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
+        if (symbol_max_line > scope_max_line)
+        {
+            declared_symbols_id.insert(symbol_node->getId());
+            code_buffer.append(getTypeText(symbol_node->getType()));
+            code_buffer.append(" ");
+            code_buffer.append(symbol_node->getName());
+            code_buffer.append(";");
+            if (!enable_line_feed_optimize)
+            {
+                code_buffer.append("\n");
+            }
+        }
+    }
+}
+
+TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
 {
     TString type_string;
 
@@ -91,7 +57,10 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
     const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
 
     TBasicType basic_type = type.getBasicType();
-    bool should_output_precision_str = (type.getQualifier().precision != EpqNone && (!(ignore_medium_presion_out && type.getQualifier().precision == EpqMedium))) || basic_type == EbtSampler;
+    bool is_vec = type.isVector();
+    bool is_blk = (basic_type == EbtBlock);
+    
+    bool should_output_precision_str = ((basic_type == EbtFloat) && type.getQualifier().precision != EpqNone && (!(ignore_medium_presion_out && type.getQualifier().precision == EpqMedium))) || basic_type == EbtSampler;
     
     if(getQualifiers)
     {
@@ -149,6 +118,27 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
     }
 
     
+    if (is_vec)
+    {
+        switch (basic_type)
+        {
+        case EbtDouble:
+            appendStr("d");
+            break;
+        case EbtInt:
+            appendStr("i");
+            break;
+        case EbtUint:
+            appendStr("u");
+            break;
+        case EbtBool:
+            appendStr("b");
+            break;
+        case EbtFloat:
+        default:
+            break;
+        }
+    }
 
     
 
@@ -169,8 +159,7 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         appendInt(type.getVectorSize());
     }
 
-    bool is_vec = type.isVector();
-    bool is_blk = (basic_type == EbtBlock);
+  
 
     if ((!is_vec) && (!is_blk))
     {
@@ -217,7 +206,7 @@ TString TTanGramTraverser::getTypeText(const TType& type, bool getQualifiers, bo
     return type_string;
 }
 
-TString TTanGramTraverser::getArraySize(const TType& type)
+TString TAstToGLTraverser::getArraySize(const TType& type)
 {
     TString type_string;
 
@@ -253,7 +242,7 @@ TString TTanGramTraverser::getArraySize(const TType& type)
     return type_string;
 }
 
-bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
+bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
     const auto binary_const_union_pre_left = [&]() {
         TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
@@ -332,11 +321,6 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
                 auto iter = declared_symbols_id.find(symbol_id);
                 if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
                 else { is_declared = true; }
-
-                if (symbol_node->getName() == "_191")
-                {
-                    int aa = 0;
-                }
             }
 
             if (is_declared == false)
@@ -420,7 +404,7 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     case EOpLeftShift:NODE_VISIT_FUNC(, code_buffer.append("<<"), );
     case EOpAnd:NODE_VISIT_FUNC(, code_buffer.append("&&"), );
     case EOpEqual:NODE_VISIT_FUNC(, code_buffer.append("=="), );
-    case EOpNotEqual:NODE_VISIT_FUNC(, code_buffer.append("=="), );
+    case EOpNotEqual:NODE_VISIT_FUNC(, code_buffer.append("!="), );
     case EOpLessThan:NODE_VISIT_FUNC(, code_buffer.append("<"), );
     case EOpGreaterThan:NODE_VISIT_FUNC(, code_buffer.append(">"), );
     case EOpLessThanEqual:NODE_VISIT_FUNC(, code_buffer.append("<="), );
@@ -440,7 +424,7 @@ bool TTanGramTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     return true;
 }
 
-bool TTanGramTraverser::visitUnary(TVisit visit, TIntermUnary* node)
+bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 {
     TOperator node_operator = node->getOp();
     switch (node_operator)
@@ -490,6 +474,12 @@ bool TTanGramTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
     case EOpConvUintToFloat:NODE_VISIT_FUNC();
 
+    // float32_t -> uint*
+    case EOpConvFloatToUint8:  NODE_VISIT_FUNC(code_buffer.append("uint8(");,, code_buffer.append(")"););
+    case EOpConvFloatToUint16: NODE_VISIT_FUNC(code_buffer.append("uint16(");,, code_buffer.append(")"););;
+    case EOpConvFloatToUint:   NODE_VISIT_FUNC(code_buffer.append("uint(");,, code_buffer.append(")"););
+    case EOpConvFloatToUint64: NODE_VISIT_FUNC(code_buffer.append("uint64(");,, code_buffer.append(")"););
+
     default:
         assert_t(false);
         break;
@@ -497,7 +487,7 @@ bool TTanGramTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     return true;
 }
 
-bool TTanGramTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
+bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 {
     TOperator node_operator = node->getOp();
     switch (node_operator)
@@ -715,7 +705,7 @@ bool TTanGramTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     return true;
 }
 
-bool TTanGramTraverser::visitSelection(TVisit, TIntermSelection* node)
+bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
     if (node->getShortCircuit() == false)
     {
@@ -782,7 +772,7 @@ static TString OutputDouble(double value)
     return std::to_string(value).c_str();
 };
 
-void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion)
+void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion)
 {
     int size = node->getType().computeNumComponents();
 
@@ -794,6 +784,7 @@ void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         {
         case EbtInt: {if (constUnion[i].getIConst() != constUnion[i - 1].getIConst()) { is_all_components_same = false; } break; }
         case EbtDouble: {if (constUnion[i].getDConst() != constUnion[i - 1].getDConst()) { is_all_components_same = false; } break; }
+        case EbtUint: {if (constUnion[i].getUConst() != constUnion[i - 1].getUConst()) { is_all_components_same = false; } break; }
         default:
         {
             assert_t(false);
@@ -850,12 +841,12 @@ void TTanGramTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
 }
 
 
-void TTanGramTraverser::visitConstantUnion(TIntermConstantUnion* node)
+void TAstToGLTraverser::visitConstantUnion(TIntermConstantUnion* node)
 {
     outputConstantUnion(node, node->getConstArray());
 }
 
-void TTanGramTraverser::visitSymbol(TIntermSymbol* node)
+void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 {
     bool is_declared = false;
 
@@ -895,12 +886,12 @@ void TTanGramTraverser::visitSymbol(TIntermSymbol* node)
     }
 }
 
-bool TTanGramTraverser::visitLoop(TVisit, TIntermLoop* node)
+bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
     return false;
 }
 
-bool TTanGramTraverser::visitBranch(TVisit visit, TIntermBranch* node)
+bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
 {
     TOperator node_operator = node->getFlowOp();
     switch (node->getFlowOp())
@@ -926,8 +917,13 @@ bool TTanGramTraverser::visitBranch(TVisit visit, TIntermBranch* node)
     return true;
 }
 
-bool TTanGramTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
+bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
 {
+    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.visitSwitch(EvPreVisit, node);
+
+    declareSubScopeSymbol();
+
     code_buffer.append("switch(");
     if (node->getFlatten())
     {
@@ -940,20 +936,19 @@ bool TTanGramTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
     }
     
     // condition
+    incrementDepth(node);
     {
-        incrementDepth(node);
+        
         node->getCondition()->traverse(this);
         code_buffer.append(")");
         if (!enable_line_feed_optimize)
         {
             code_buffer.append("\n");
         }
-        decrementDepth();
     }
 
     // body
     {
-        incrementDepth(node);
         code_buffer.append("{");
         node->getBody()->traverse(this);
         code_buffer.append("}");
@@ -961,8 +956,8 @@ bool TTanGramTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
         {
             code_buffer.append("\n");
         }
-        decrementDepth();
     }
+    decrementDepth();
 
 
     return false; /* visit the switch node on high level */
@@ -1019,7 +1014,7 @@ void ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, cha
 
 	TIntermediate* intermediate = shader.getIntermediate();
 
-    TTanGramTraverser tangram_tranverser;
+    TAstToGLTraverser tangram_tranverser;
     
     TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
     if (root_aggregate != nullptr)
