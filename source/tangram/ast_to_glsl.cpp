@@ -31,7 +31,9 @@ void TAstToGLTraverser::declareSubScopeSymbol()
     for (auto& iter : subscope_tranverser.getSubScopeSymbols())
     {
         TIntermSymbol* symbol_node = iter.second;
-        int symbol_max_line = symbols_max_line->find(symbol_node->getId())->second;
+        auto symbol_map = symbols_max_line->find(symbol_node->getId());
+        assert_t(symbol_map != symbols_max_line->end());
+        int symbol_max_line = symbol_map->second;
 
         if (symbol_max_line > scope_max_line)
         {
@@ -40,10 +42,7 @@ void TAstToGLTraverser::declareSubScopeSymbol()
             code_buffer.append(" ");
             code_buffer.append(symbol_node->getName());
             code_buffer.append(";");
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.append("\n");
-            }
+            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
     }
 }
@@ -59,12 +58,19 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
     TBasicType basic_type = type.getBasicType();
     bool is_vec = type.isVector();
     bool is_blk = (basic_type == EbtBlock);
-    
+    const TQualifier& qualifier = type.getQualifier();
+
+    // build-in variable
+    if (qualifier.storage >= EvqVertexId && qualifier.storage <= EvqFragStencil)
+    {
+        return TString();
+    }
+
     bool should_output_precision_str = ((basic_type == EbtFloat) && type.getQualifier().precision != EpqNone && (!(ignore_medium_presion_out && type.getQualifier().precision == EpqMedium))) || basic_type == EbtSampler;
     
     if(getQualifiers)
     {
-        const TQualifier& qualifier = type.getQualifier();
+        
         if (qualifier.hasLayout())
         {
             appendStr("layout(");
@@ -246,55 +252,19 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
     const auto binary_const_union_pre_left = [&]() {
         TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
-        if (contant_union)
-        {
-            int array_size = contant_union->getConstArray().size();
-            if (array_size > 1)
-            {
-                code_buffer.append("vec");
-                code_buffer.append(std::to_string(array_size).c_str());
-                code_buffer.append("(");
-                parser_context.is_vector_times_scalar = true;
-            }
-        } };
+        if (contant_union) { constUnionBegin(contant_union, node->getLeft()->getBasicType()); } };
 
     const auto binary_const_union_in_left = [&]() {
         TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
-        if (contant_union)
-        {
-            int array_size = contant_union->getConstArray().size();
-            if (array_size > 1)
-            {
-                parser_context.is_vector_times_scalar = false;
-                code_buffer.append(")");
-            }
-        }};
+        if (contant_union) { constUnionEnd(contant_union); }};
 
     const auto binary_const_union_in_right = [&]() {
         TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
-        if (contant_union)
-        {
-            int array_size = contant_union->getConstArray().size();
-            if (array_size > 1)
-            {
-                code_buffer.append("vec");
-                code_buffer.append(std::to_string(array_size).c_str());
-                code_buffer.append("(");
-                parser_context.is_vector_times_scalar = true;
-            }
-        } };
+        if (contant_union) { constUnionBegin(contant_union, node->getRight()->getBasicType()); }; };
 
     const auto binary_const_union_post_right = [&]() {
         TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
-        if (contant_union)
-        {
-            int array_size = contant_union->getConstArray().size();
-            if (array_size > 1)
-            {
-                parser_context.is_vector_times_scalar = false;
-                code_buffer.append(")");
-            }
-        }};
+        if (contant_union) { constUnionEnd(contant_union); }};
 
     TOperator node_operator = node->getOp();
     switch (node_operator)
@@ -325,8 +295,12 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 
             if (is_declared == false)
             {
-                code_buffer.append(getTypeText(node->getType()));
-                code_buffer.append(" ");
+                TString type_str = getTypeText(node->getType());
+                if (type_str != "")
+                {
+                    code_buffer.append(type_str);
+                    code_buffer.append(" ");
+                }
             }
         }
         else if (visit == EvInVisit)
@@ -334,10 +308,12 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             if (!enable_white_space_optimize) { code_buffer.append(" "); }
             code_buffer.append("=");
             if (!enable_white_space_optimize) { code_buffer.append(" "); }
+            binary_const_union_in_right();
         }
         else if (visit == EvPostVisit)
         {
-            code_buffer.append(";");;
+            binary_const_union_post_right();
+            if (parser_context.is_in_loop_header == false) { code_buffer.append(";");}
             if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
         break;
@@ -371,6 +347,7 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
         }
         break;
     }
+    case EOpIndexIndirect: NODE_VISIT_FUNC(, code_buffer.append("[");, code_buffer.append("]"); );
     case EOpIndexDirect: NODE_VISIT_FUNC(, 
         if (node->getLeft()->getType().isArray()) 
         { 
@@ -402,7 +379,7 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     case EOpMod:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("%"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
     case EOpRightShift:NODE_VISIT_FUNC(, code_buffer.append(">>"), );
     case EOpLeftShift:NODE_VISIT_FUNC(, code_buffer.append("<<"), );
-    case EOpAnd:NODE_VISIT_FUNC(, code_buffer.append("&&"), );
+    case EOpAnd:NODE_VISIT_FUNC(code_buffer.append("("); binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("&"); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"));
     case EOpEqual:NODE_VISIT_FUNC(, code_buffer.append("=="), );
     case EOpNotEqual:NODE_VISIT_FUNC(, code_buffer.append("!="), );
     case EOpLessThan:NODE_VISIT_FUNC(, code_buffer.append("<"), );
@@ -426,9 +403,18 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 
 bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 {
+    const auto append_vector_size = [&]() {
+        int vec_size = node->getVectorSize();
+        if (vec_size > 1) { code_buffer.append(std::to_string(vec_size).c_str()); }};
+
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
+    case EOpPostIncrement: NODE_VISIT_FUNC(, , code_buffer.append("++"); );
+    case EOpPostDecrement: NODE_VISIT_FUNC(, , code_buffer.append("--"); );
+    case EOpPreIncrement: NODE_VISIT_FUNC(code_buffer.append("++"), , ; );
+    case EOpPreDecrement: NODE_VISIT_FUNC(code_buffer.append("--"), , ; );
+
     case EOpExp: NODE_VISIT_FUNC(code_buffer.append("exp(");, , code_buffer.append(")"); );
     case EOpLog: NODE_VISIT_FUNC(code_buffer.append("log(");, , code_buffer.append(")"); );
     case EOpExp2: NODE_VISIT_FUNC(code_buffer.append("exp2(");, , code_buffer.append(")"); );
@@ -470,14 +456,18 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
     // GLSL spec 4.5
     // 4.1.10. Implicit Conversions
-    case EOpConvUintToInt:     NODE_VISIT_FUNC(code_buffer.append("int(");,, code_buffer.append(")"););
+    case EOpConvUintToInt:     NODE_VISIT_FUNC(code_buffer.append("int"); append_vector_size(); code_buffer.append("("); , , code_buffer.append(")"););
 
     case EOpConvUintToFloat:NODE_VISIT_FUNC();
 
     // float32_t -> uint*
     case EOpConvFloatToUint8:  NODE_VISIT_FUNC(code_buffer.append("uint8(");,, code_buffer.append(")"););
     case EOpConvFloatToUint16: NODE_VISIT_FUNC(code_buffer.append("uint16(");,, code_buffer.append(")"););;
-    case EOpConvFloatToUint:   NODE_VISIT_FUNC(code_buffer.append("uint(");,, code_buffer.append(")"););
+    case EOpConvFloatToUint:   NODE_VISIT_FUNC(
+        int vec_size = node->getVectorSize();
+        if (vec_size > 1) { code_buffer.append("uvec"); }
+        else { code_buffer.append("uint"); }
+        append_vector_size(); code_buffer.append("(");, , code_buffer.append(")"););
     case EOpConvFloatToUint64: NODE_VISIT_FUNC(code_buffer.append("uint64(");,, code_buffer.append(")"););
 
     default:
@@ -489,9 +479,35 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
 bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 {
+    //todo: fix me, surpport more type
+    const auto binary_const_union_pre_left = [&]() {
+        assert_t(node->getSequence().size() == 2);
+        TIntermNode* left_node = node->getSequence()[0];
+        TIntermConstantUnion* contant_union = left_node->getAsConstantUnion();
+        if (contant_union) { constUnionBegin(contant_union, left_node->getAsTyped()->getBasicType()); } };
+
+    const auto binary_const_union_in_left = [&]() {
+        assert_t(node->getSequence().size() == 2);
+        TIntermNode* left_node = node->getSequence()[0];
+        TIntermConstantUnion* contant_union = left_node->getAsConstantUnion();
+        if (contant_union) { constUnionEnd(contant_union); }};
+
+    const auto binary_const_union_in_right = [&]() {
+        assert_t(node->getSequence().size() == 2);
+        TIntermNode* right_node = node->getSequence()[1];
+        TIntermConstantUnion* contant_union = right_node->getAsConstantUnion();
+        if (contant_union) { constUnionBegin(contant_union, right_node->getAsTyped()->getBasicType()); }; };
+
+    const auto binary_const_union_post_right = [&]() {
+        assert_t(node->getSequence().size() == 2);
+        TIntermNode* right_node = node->getSequence()[1];
+        TIntermConstantUnion* contant_union = right_node->getAsConstantUnion();
+        if (contant_union) { constUnionEnd(contant_union); }};
+
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
+    case EOpComma:NODE_VISIT_FUNC(, code_buffer.append(","), );
     case EOpFunction:
     {
         if (visit == EvPreVisit)
@@ -508,37 +524,15 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
         else if(visit == EvPostVisit)
         {
             code_buffer.insert(code_buffer.end(), '}');
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.insert(code_buffer.end(), '\n');
-            }
+            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
         
         break;
     }
-    case EOpParameters:
-    {
-        if (visit == EvPreVisit)
-        {
-            assert_t(node->getSequence().size() == 0);
-        }
-        else if (visit == EvInVisit)
-        {
-            assert_t(false);
-        }
-        else if (visit == EvPostVisit)
-        {
-            code_buffer.append(") { ");
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.insert(code_buffer.end(), '\n');
-            }
-        }
-        break;
-    }
+    case EOpParameters:NODE_VISIT_FUNC(assert_t(node->getSequence().size() == 0); , assert_t(false);, code_buffer.append(") { "); if (!enable_line_feed_optimize) { code_buffer.append("\n"); });
 
-    case EOpMin: NODE_VISIT_FUNC(code_buffer.append("min("); , code_buffer.append(","), code_buffer.append(")"); );
-    case EOpMax: NODE_VISIT_FUNC(code_buffer.append("max("); , code_buffer.append(","), code_buffer.append(")"); );
+    case EOpMin: NODE_VISIT_FUNC(code_buffer.append("min("); binary_const_union_pre_left();, binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
+    case EOpMax: NODE_VISIT_FUNC(code_buffer.append("max("); binary_const_union_pre_left();, binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
     case EOpClamp: NODE_VISIT_FUNC(code_buffer.append("clamp("); , code_buffer.append(","), code_buffer.append(")"); );
     case EOpMix: NODE_VISIT_FUNC(code_buffer.append("mix("); , code_buffer.append(","), code_buffer.append(")"); );
     case EOpStep: NODE_VISIT_FUNC(code_buffer.append("step("); code_buffer.append(","), , code_buffer.append(")"); );
@@ -651,30 +645,20 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     case EOpConstructF16Mat4x3:NODE_VISIT_FUNC(code_buffer.append("f16mat4x3("), code_buffer.append(","), code_buffer.append(")"));
     case EOpConstructF16Mat4x4:NODE_VISIT_FUNC(code_buffer.append("f16mat4("), code_buffer.append(","), code_buffer.append(")"))
 
-    case EOpLinkerObjects:
-    {
-        if (visit == EvPreVisit)
-        {
+    case EOpLessThan:         assert_t(false); break;
+    case EOpGreaterThan:      assert_t(false); break;
+    case EOpLessThanEqual:    assert_t(false); break;
+    case EOpGreaterThanEqual: assert_t(false); break;
+    case EOpVectorEqual:      assert_t(false); break;
+    case EOpVectorNotEqual:   assert_t(false); break;
 
-        }
-        else if (visit == EvInVisit)
-        {
-            code_buffer.append(";");
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.insert(code_buffer.end(), '\n');
-            }
-        }
-        else if (visit == EvPostVisit)
-        {
-            code_buffer.append(";");
-            if (!enable_line_feed_optimize)
-            {
-                code_buffer.insert(code_buffer.end(), '\n');
-            }
-        }
-        break;
-    }
+    case EOpMod:           assert_t(false); break;
+    case EOpModf:          assert_t(false); break;
+    case EOpPow:           NODE_VISIT_FUNC(code_buffer.append("pow("), code_buffer.append(","), code_buffer.append(")"))
+
+    case EOpAtan:          assert_t(false); break;
+
+    case EOpLinkerObjects:NODE_VISIT_FUNC(, code_buffer.append(";"); if (!enable_line_feed_optimize) { code_buffer.append("\n"); }, code_buffer.append(";"); if (!enable_line_feed_optimize) { code_buffer.append("\n"); });
     case EOpTextureQuerySize:NODE_VISIT_FUNC(code_buffer.append("textureSize("), code_buffer.append(","), code_buffer.append(")"));
     case EOpTextureQueryLod:NODE_VISIT_FUNC(code_buffer.append("textureQueryLod("), code_buffer.append(","), code_buffer.append(")"));
     case EOpTextureQueryLevels:NODE_VISIT_FUNC(code_buffer.append("textureQueryLevels("), code_buffer.append(","), code_buffer.append(")"));
@@ -707,6 +691,10 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 
 bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
+    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.visitSelection(EvPreVisit, node);
+    declareSubScopeSymbol();
+
     if (node->getShortCircuit() == false)
     {
         assert_t(false);
@@ -722,41 +710,54 @@ bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
         assert_t(false);
     }
 
-    code_buffer.append("if(");
+    bool is_ternnary = false;
+    TIntermNode* true_block = node->getTrueBlock();
+    TIntermNode* false_block = node->getFalseBlock();
 
-    //condition
-    incrementDepth(node);
+    if ((true_block != nullptr) && (false_block != nullptr))
     {
+        int true_block_line = true_block->getLoc().line;
+        int false_block_line = false_block->getLoc().line;
+        if (abs(true_block_line - false_block_line) <= 1)
+        {
+            is_ternnary = true;
+        }
+    }
+
+    if (is_ternnary)
+    {
+        incrementDepth(node);
+        code_buffer.append("((");
+        node->getCondition()->traverse(this);
+        code_buffer.append(")?(");
+        true_block->traverse(this);
+        code_buffer.append("):(");
+        false_block->traverse(this);
+        code_buffer.append("))");
+    }
+    else
+    {
+        incrementDepth(node);
+        code_buffer.append("if(");
+
         node->getCondition()->traverse(this);
         code_buffer.append("){");
         if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
-        
-    }
 
-    {
-        if (node->getTrueBlock())
-        {
-            node->getTrueBlock()->traverse(this);
-        }
-        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+        if (true_block) { true_block->traverse(this); }
         code_buffer.append("}");
         if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
-    }
 
-    {
-        if (node->getFalseBlock())
+        if (false_block)
         {
             code_buffer.append("else{");
-            node->getFalseBlock()->traverse(this);
-            if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+            false_block->traverse(this);
             code_buffer.append("}");
             if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
+
+        decrementDepth();
     }
-
-
-    decrementDepth();
-    
 
     return false;  /* visit the selection node on high level */
 }
@@ -769,6 +770,19 @@ static char unionConvertToChar(int index)
 
 static TString OutputDouble(double value)
 {
+    if (std::isinf(value))
+    {
+        assert_t(false);
+    }
+    else if (std::isnan(value))
+    {
+        assert_t(false);
+    }
+    else
+    {
+        const int maxSize = 340;
+        char buf[maxSize];
+    }
     return std::to_string(value).c_str();
 };
 
@@ -833,13 +847,58 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         }
         }
 
-        if (parser_context.is_vector_times_scalar && (i != (size - 1)))
+        if (parser_context.is_subvector_scalar && (i != (size - 1)))
         {
             code_buffer.append(",");
         }
     }
 }
 
+void TAstToGLTraverser::constUnionBegin(TIntermConstantUnion* const_untion, TBasicType basic_type)
+{
+    if (const_untion)
+    {
+        int array_size = const_untion->getConstArray().size();
+        if (array_size > 1)
+        {
+            switch (basic_type)
+            {
+            case EbtDouble:
+                code_buffer.append("d");
+                break;
+            case EbtInt:
+                code_buffer.append("i");
+                break;
+            case EbtUint:
+                code_buffer.append("u");
+                break;
+            case EbtBool:
+                code_buffer.append("b");
+                break;
+            case EbtFloat:
+            default:
+                break;
+            };
+            code_buffer.append("vec");
+            code_buffer.append(std::to_string(array_size).c_str());
+            code_buffer.append("(");
+            parser_context.is_subvector_scalar = true;
+        }
+    }
+}
+
+void TAstToGLTraverser::constUnionEnd(TIntermConstantUnion* const_untion)
+{
+    if (const_untion)
+    {
+        int array_size = const_untion->getConstArray().size();
+        if (array_size > 1)
+        {
+            parser_context.is_subvector_scalar = false;
+            code_buffer.append(")");
+        }
+    }
+}
 
 void TAstToGLTraverser::visitConstantUnion(TIntermConstantUnion* node)
 {
@@ -865,8 +924,12 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 
     if (is_declared == false)
     {
-        code_buffer.append(getTypeText(node->getType()));
-        code_buffer.append(" ");
+        TString type_str = getTypeText(node->getType());
+        if (type_str != "")
+        {
+            code_buffer.append(type_str);
+            code_buffer.append(" ");
+        }
     }
 
     code_buffer.append(node->getName());
@@ -888,7 +951,43 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
-    return false;
+    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.visitLoop(EvPreVisit, node);
+    declareSubScopeSymbol();
+
+    loop_header_tranverser.resetTraverser();
+    loop_header_tranverser.visitLoop(EvPreVisit, node);
+    for (auto& iter : loop_header_tranverser.getLoopHeaderSymbols())
+    {
+        TIntermSymbol* symbol_node = iter.second;
+        declared_symbols_id.insert(symbol_node->getId());
+        code_buffer.append(getTypeText(symbol_node->getType()));
+        code_buffer.append(" ");
+        code_buffer.append(symbol_node->getName());
+        code_buffer.append(";");
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+    }
+
+    if (!node->testFirst()) { assert_t(false); }
+    if (node->getUnroll()) { assert_t(false); }
+    if (node->getLoopDependency()) { assert_t(false); }
+
+    incrementDepth(node);
+    parser_context.is_in_loop_header = true;
+    code_buffer.append("for(;");
+    if (node->getTest()) { node->getTest()->traverse(this); }
+    code_buffer.append(";");
+    if (node->getTerminal()) { node->getTerminal()->traverse(this); };
+    parser_context.is_in_loop_header = false;
+    
+    // loop body
+    code_buffer.append("){");
+    if (node->getBody()) { node->getBody()->traverse(this); }
+    code_buffer.append("\n}");
+    
+    if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
+    decrementDepth();
+    return false; /* visit the switch node on high level */
 }
 
 bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
@@ -941,10 +1040,7 @@ bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
         
         node->getCondition()->traverse(this);
         code_buffer.append(")");
-        if (!enable_line_feed_optimize)
-        {
-            code_buffer.append("\n");
-        }
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
     }
 
     // body
@@ -952,10 +1048,7 @@ bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
         code_buffer.append("{");
         node->getBody()->traverse(this);
         code_buffer.append("}");
-        if (!enable_line_feed_optimize)
-        {
-            code_buffer.append("\n");
-        }
+        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
     }
     decrementDepth();
 

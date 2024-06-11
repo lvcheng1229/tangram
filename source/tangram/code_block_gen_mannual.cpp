@@ -53,8 +53,17 @@ void replace_string(std::string& subject, const std::string& search, const std::
 	size_t pos = 0;
 	while ((pos = subject.find(search, pos)) != std::string::npos)
 	{
-		subject.replace(pos, search.length(), replace);
-		pos += replace.length();
+		char next_char = subject[pos + search.length()];
+		bool is_digital = next_char >= 48 && next_char <= 57;
+		if (!is_digital)
+		{
+			subject.replace(pos, search.length(), replace);
+			pos += replace.length();
+		}
+		else
+		{
+			pos += search.length();
+		}
 	}
 }
 
@@ -196,8 +205,9 @@ size_t shader_code_replace(const void* src_code_str, int size, char* dst_code)
 			return size;
 		}
 
-		size_t var_pos = temp_str.find(var_map.src_string);
-		if (var_pos > clu_shading_begin_pos)
+		size_t var_pos0 = temp_str.find(var_map.src_string + ' ');
+		size_t var_pos1 = temp_str.find(var_map.src_string + ';');
+		if (var_pos0 > clu_shading_begin_pos && var_pos1 > clu_shading_begin_pos)
 		{
 			return size;
 		}

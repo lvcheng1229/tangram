@@ -19,19 +19,10 @@ POST;\
 
 class TSymbolScopeTraverser : public TIntermTraverser {
 public:
-    TSymbolScopeTraverser() :
-        TIntermTraverser(true, true, true, false) //
-    { }
+    TSymbolScopeTraverser() : TIntermTraverser(true, true, true, false) {}
 
     virtual bool visitBinary(TVisit, TIntermBinary* node);
-    virtual bool visitUnary(TVisit, TIntermUnary* node);
-    virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-    virtual bool visitSelection(TVisit, TIntermSelection* node);
-    virtual void visitConstantUnion(TIntermConstantUnion* node);
     virtual void visitSymbol(TIntermSymbol* node);
-    virtual bool visitLoop(TVisit, TIntermLoop* node);
-    virtual bool visitBranch(TVisit, TIntermBranch* node);
-    virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
     inline std::unordered_map<long long, int>* getSymbolMaxLine() { return &symbol_max_line; };
 private:
@@ -46,16 +37,16 @@ public:
         TIntermTraverser(true, true, true, false) {};
 
     virtual bool visitBinary(TVisit, TIntermBinary* node);
-    virtual bool visitUnary(TVisit, TIntermUnary* node);
-    virtual bool visitAggregate(TVisit, TIntermAggregate* node);
+    virtual bool visitUnary(TVisit, TIntermUnary* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
+    virtual bool visitAggregate(TVisit, TIntermAggregate* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
     virtual bool visitSelection(TVisit, TIntermSelection* node);
-    virtual void visitConstantUnion(TIntermConstantUnion* node);
+    virtual void visitConstantUnion(TIntermConstantUnion* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return ; }
     virtual void visitSymbol(TIntermSymbol* node);
     virtual bool visitLoop(TVisit, TIntermLoop* node);
-    virtual bool visitBranch(TVisit, TIntermBranch* node);
+    virtual bool visitBranch(TVisit, TIntermBranch* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
-    inline void resetSubScopeMaxLine() { subscope_max_line = 0; };
+    inline void resetSubScopeMaxLine() { subscope_max_line = 0; subscope_symbols.clear(); };
     inline std::unordered_map<int, TIntermSymbol*>& getSubScopeSymbols() { return subscope_symbols; }
     inline int getSubScopeMaxLine() { return subscope_max_line; };
 
@@ -65,10 +56,29 @@ private:
     std::unordered_map<int, TIntermSymbol*> subscope_symbols;
 };
 
+class TLoopHeaderTraverser : public TIntermTraverser {
+public:
+    TLoopHeaderTraverser(const std::set<long long>* input_declared_symbols_id)
+        :declared_symbols_id(input_declared_symbols_id),
+        TIntermTraverser(true, true, true, false) {};
+
+    virtual bool visitBinary(TVisit, TIntermBinary* node);
+    virtual void visitSymbol(TIntermSymbol* node);
+    virtual bool visitLoop(TVisit, TIntermLoop* node);
+    
+    inline void resetTraverser() { loop_header_symbols.clear(); };
+    inline std::unordered_map<int, TIntermSymbol*>& getLoopHeaderSymbols() { return loop_header_symbols; }
+
+private:
+    const std::set<long long>* declared_symbols_id;
+    std::unordered_map<int, TIntermSymbol*> loop_header_symbols;
+};
+
 class TAstToGLTraverser : public TIntermTraverser {
 public:
     TAstToGLTraverser() :
         subscope_tranverser(&declared_symbols_id),
+        loop_header_tranverser(&declared_symbols_id),
         TIntermTraverser(true, true, true, false) //
     { }
 
@@ -86,8 +96,12 @@ public:
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
 private:
+    void constUnionBegin(TIntermConstantUnion* const_untion, TBasicType basic_type);
+    void constUnionEnd(TIntermConstantUnion* const_untion);
+
     void declareSubScopeSymbol();
     void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
+
     TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
     TString getArraySize(const TType& type);
 
@@ -99,7 +113,8 @@ protected:
     struct SParserContext
     {
         bool is_vector_swizzle = false;
-        bool is_vector_times_scalar = false;
+        bool is_subvector_scalar = false;
+        bool is_in_loop_header = false;
     };
 
     SParserContext parser_context;
@@ -109,6 +124,7 @@ protected:
 
     TSymbolScopeTraverser symbol_scope_traverser;
     TSubScopeTraverser subscope_tranverser;
+    TLoopHeaderTraverser loop_header_tranverser;
 };
 
 
