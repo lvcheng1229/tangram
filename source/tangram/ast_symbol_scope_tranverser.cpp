@@ -130,7 +130,6 @@ void TSubScopeTraverser::visitSymbol(TIntermSymbol* node)
 bool TSubScopeTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
 	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
-	if (!node->testFirst()) { assert_t(false); }
 	if (node->getUnroll()) { assert_t(false); }
 	if (node->getLoopDependency()) { assert_t(false); }
 

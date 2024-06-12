@@ -97,8 +97,8 @@ public:
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
 private:
-    void constUnionBegin(TIntermConstantUnion* const_untion, TBasicType basic_type);
-    void constUnionEnd(TIntermConstantUnion* const_untion);
+    void constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type);
+    void constUnionEnd(const TIntermConstantUnion* const_untion);
 
     void declareSubScopeSymbol();
     void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);

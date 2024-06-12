@@ -381,7 +381,7 @@ void TestGlobalASTToGL()
 
 	int success_num = 0;
 
-	for (int idx = 0; idx < shader_archive.ShaderEntries.size(); idx++)
+	for (int idx = 800; idx < shader_archive.ShaderEntries.size(); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
@@ -394,6 +394,8 @@ void TestGlobalASTToGL()
 		{
 			continue;
 		}
+
+		std::cout << idx << std::endl;
 
 		std::vector<char> shader_code_decompressed_data;
 		shader_code_decompressed_data.resize(shader_entry.UncompressedSize);
@@ -418,6 +420,7 @@ int main()
 	//	return 0;
 	//}
 	//
+	
 	//{
 	//	TestSingleAstToGL();
 	//	return 0;
