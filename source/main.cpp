@@ -340,27 +340,95 @@ void MannualCodeBlockGenTest()
 	glslang::FinalizeProcess();
 }
 
+void TestSingleAstToGL()
+{
+	init_ast_to_glsl();
+	std::vector<char> dict_buffer;
+	std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
+	LoadBuffer(dict_buffer, shader_path);
+	int size_code = dict_buffer.size();
+
+	std::vector<char> out_buffer;
+	out_buffer.resize(size_code);
+	int out_size;
+	ast_to_glsl((const char* const*)dict_buffer.data(), &size_code, out_buffer.data(), out_size);
+	out_buffer.resize(out_size);
+
+	std::string out_path = ABSOLUTE_PATH("/source/resource/ast_test_o.frag");
+	OutBuffer(out_buffer, out_path);
+
+	finish_ast_to_glsl();
+}
+
+void TestGlobalASTToGL()
+{
+	init_ast_to_glsl();
+
+	ZSTD_DCtx* Context = ZSTD_createDCtx();
+
+	std::vector<char> dict_buffer;
+	std::string dict_path = ABSOLUTE_PATH("/source/resource/MSDKPushMsg.json");
+	LoadBuffer(dict_buffer, dict_path);
+	ZSTD_DDict* Zstd_ddict = ZSTD_createDDict(dict_buffer.data(), dict_buffer.size());
+
+	std::string shader_path = ABSOLUTE_PATH("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
+	std::ifstream shader_data = std::ifstream(shader_path, std::ios::in | std::ios::binary);
+	CShaderArchive shader_archive;
+	shader_archive.Serialize(shader_data);
+	std::streamsize shader_offset = shader_data.tellg();
+
+	glslang::InitializeProcess();
+
+	int success_num = 0;
+
+	for (int idx = 0; idx < shader_archive.ShaderEntries.size(); idx++)
+	{
+		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
+		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
+
+		std::vector<char> shader_code_data;
+		shader_code_data.resize(shader_entry.Size);
+		shader_data.read((char*)(shader_code_data.data()), shader_entry.Size);
+
+		if (shader_entry.Frequency != 3)
+		{
+			continue;
+		}
+
+		std::vector<char> shader_code_decompressed_data;
+		shader_code_decompressed_data.resize(shader_entry.UncompressedSize);
+		size_t Code = ZSTD_decompress_usingDDict(Context, shader_code_decompressed_data.data(), shader_code_decompressed_data.size(), shader_code_data.data(), shader_code_data.size(), Zstd_ddict);
+
+		{
+			int code_size = Code;
+			std::vector<char> out_buffer;
+			out_buffer.resize(Code);
+			int out_size;
+			bool result = ast_to_glsl((const char* const*)(shader_code_decompressed_data.data()), &code_size, out_buffer.data(), out_size);
+		}
+	}
+
+	finish_ast_to_glsl();
+};
+
 int main()
 {
-	//MannualCodeBlockGenTest();
-	//return 0;
+	//{
+	//	MannualCodeBlockGenTest();
+	//	return 0;
+	//}
+	//
+	//{
+	//	TestSingleAstToGL();
+	//	return 0;
+	//}
 
 	{
-		std::vector<char> dict_buffer;
-		std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
-		LoadBuffer(dict_buffer, shader_path);
-		int size_code = dict_buffer.size();
-
-		std::vector<char> out_buffer;
-		out_buffer.resize(size_code);
-		int out_size;
-		ast_to_glsl((const char* const*)dict_buffer.data(), &size_code, out_buffer.data(), out_size);
-		out_buffer.resize(out_size);
-		
-		std::string out_path = ABSOLUTE_PATH("/source/resource/ast_test_o.frag");
-		OutBuffer(out_buffer, out_path);
+		TestGlobalASTToGL();
 		return 0;
 	}
+
+
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 	
 	std::vector<char> dict_buffer;

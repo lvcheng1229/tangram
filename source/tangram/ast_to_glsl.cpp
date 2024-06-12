@@ -1,5 +1,12 @@
 #include "ast_tranversar_private.h"
 
+//todo: 
+// 1. fix bug xyzw.x -> to .x
+
+#if TANGRAM_DEBUG
+#include <fstream>
+#include <iostream>
+#endif
 
 void TAstToGLTraverser::preTranverse(TIntermediate* intermediate)
 {
@@ -296,7 +303,16 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             if (is_declared == false)
             {
                 TString type_str = getTypeText(node->getType());
-                if (type_str != "")
+
+                // check twice, since some build-in symbol are makred as EvqTemporary instead of EvqVertexId to EvqFragStencil
+                const TString& symbol_name = symbol_node->getName();
+                bool is_build_in_variable = false;
+                if ((symbol_name[0] == 'g') && (symbol_name[1] == 'l') && (symbol_name[2] == '_'))
+                {
+                    is_build_in_variable = true;
+                }
+
+                if ((type_str != "") && (!is_build_in_variable))
                 {
                     code_buffer.append(type_str);
                     code_buffer.append(" ");
@@ -415,6 +431,13 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpPreIncrement: NODE_VISIT_FUNC(code_buffer.append("++"), , ; );
     case EOpPreDecrement: NODE_VISIT_FUNC(code_buffer.append("--"), , ; );
 
+    case EOpSin:            NODE_VISIT_FUNC(code_buffer.append("sin("); , , code_buffer.append(")"); );
+    case EOpCos:            NODE_VISIT_FUNC(code_buffer.append("cos(");, , code_buffer.append(")"); );
+    case EOpTan:            NODE_VISIT_FUNC(code_buffer.append("tan(");, , code_buffer.append(")"); );
+    case EOpAsin:           NODE_VISIT_FUNC(code_buffer.append("asin(");, , code_buffer.append(")"); );
+    case EOpAcos:           NODE_VISIT_FUNC(code_buffer.append("acos(");, , code_buffer.append(")"); );
+    case EOpAtan:           NODE_VISIT_FUNC(code_buffer.append("atan(");, , code_buffer.append(")"); );
+
     case EOpExp: NODE_VISIT_FUNC(code_buffer.append("exp(");, , code_buffer.append(")"); );
     case EOpLog: NODE_VISIT_FUNC(code_buffer.append("log(");, , code_buffer.append(")"); );
     case EOpExp2: NODE_VISIT_FUNC(code_buffer.append("exp2(");, , code_buffer.append(")"); );
@@ -429,7 +452,7 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpRound:  NODE_VISIT_FUNC(code_buffer.append("round("); , , code_buffer.append(")"); );
     case EOpRoundEven:  NODE_VISIT_FUNC(code_buffer.append("roundEven("); , , code_buffer.append(")"); );
     case EOpCeil:  NODE_VISIT_FUNC(code_buffer.append("ceil("); , , code_buffer.append(")"); );
-    case EOpFract:  NODE_VISIT_FUNC(code_buffer.append("frac("); , , code_buffer.append(")"); );
+    case EOpFract:  NODE_VISIT_FUNC(code_buffer.append("fract("); , , code_buffer.append(")"); );
 
 
     case EOpIsNan:  NODE_VISIT_FUNC(code_buffer.append("isnan(");,, code_buffer.append(")"); );
@@ -456,6 +479,8 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
     // GLSL spec 4.5
     // 4.1.10. Implicit Conversions
+    case EOpConvBoolToFloat:   NODE_VISIT_FUNC(code_buffer.append("float"); append_vector_size(); code_buffer.append("(");, , code_buffer.append(")"););
+
     case EOpConvUintToInt:     NODE_VISIT_FUNC(code_buffer.append("int"); append_vector_size(); code_buffer.append("("); , , code_buffer.append(")"););
 
     case EOpConvUintToFloat:NODE_VISIT_FUNC();
@@ -476,6 +501,7 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     }
     return true;
 }
+
 
 bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 {
@@ -531,15 +557,16 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     }
     case EOpParameters:NODE_VISIT_FUNC(assert_t(node->getSequence().size() == 0); , assert_t(false);, code_buffer.append(") { "); if (!enable_line_feed_optimize) { code_buffer.append("\n"); });
 
+    //8.3. Common Functions
     case EOpMin: NODE_VISIT_FUNC(code_buffer.append("min("); binary_const_union_pre_left();, binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
     case EOpMax: NODE_VISIT_FUNC(code_buffer.append("max("); binary_const_union_pre_left();, binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
     case EOpClamp: NODE_VISIT_FUNC(code_buffer.append("clamp("); , code_buffer.append(","), code_buffer.append(")"); );
     case EOpMix: NODE_VISIT_FUNC(code_buffer.append("mix("); , code_buffer.append(","), code_buffer.append(")"); );
-    case EOpStep: NODE_VISIT_FUNC(code_buffer.append("step("); code_buffer.append(","), , code_buffer.append(")"); );
+    case EOpStep: NODE_VISIT_FUNC(code_buffer.append("step("); , code_buffer.append(","), code_buffer.append(")"); );
 
     case EOpDistance: NODE_VISIT_FUNC(code_buffer.append("distance("); , code_buffer.append(","), code_buffer.append(")"); );
-    case EOpDot: NODE_VISIT_FUNC(code_buffer.append("dot("); , code_buffer.append(","), code_buffer.append(")"); );
-    case EOpCross: NODE_VISIT_FUNC(code_buffer.append("cross("); , code_buffer.append(","), code_buffer.append(")"); );
+    case EOpDot: NODE_VISIT_FUNC(code_buffer.append("dot("); binary_const_union_pre_left(); , binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
+    case EOpCross: NODE_VISIT_FUNC(code_buffer.append("cross("); binary_const_union_pre_left(); , binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
 
     case EOpConstructVec2:NODE_VISIT_FUNC(code_buffer.append("vec2("), code_buffer.append(","), code_buffer.append(")"));
     case EOpConstructVec3:NODE_VISIT_FUNC(code_buffer.append("vec3("), code_buffer.append(","), code_buffer.append(")"));
@@ -652,9 +679,9 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     case EOpVectorEqual:      assert_t(false); break;
     case EOpVectorNotEqual:   assert_t(false); break;
 
-    case EOpMod:           assert_t(false); break;
-    case EOpModf:          assert_t(false); break;
-    case EOpPow:           NODE_VISIT_FUNC(code_buffer.append("pow("), code_buffer.append(","), code_buffer.append(")"))
+    case EOpMod:           NODE_VISIT_FUNC(code_buffer.append("mod("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpModf:           NODE_VISIT_FUNC(code_buffer.append("modf("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpPow:           NODE_VISIT_FUNC(code_buffer.append("pow("); binary_const_union_pre_left(); , binary_const_union_in_left(); code_buffer.append(","); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"); );
 
     case EOpAtan:          assert_t(false); break;
 
@@ -782,6 +809,44 @@ static TString OutputDouble(double value)
     {
         const int maxSize = 340;
         char buf[maxSize];
+        const char* format = "%.23f";
+        if (fabs(value) > 0.0 && (fabs(value) < 1e-5 || fabs(value) > 1e12))
+        {
+            assert_t(false);
+            format = "%-.13e";
+        }
+            
+        int len = snprintf(buf, maxSize, format, value);
+        assert(len < maxSize);
+
+        // remove a leading zero in the 100s slot in exponent; it is not portable
+        // pattern:   XX...XXXe+0XX or XX...XXXe-0XX
+        if (len > 5) 
+        {
+            if (buf[len - 5] == 'e' && (buf[len - 4] == '+' || buf[len - 4] == '-') && buf[len - 3] == '0') 
+            {
+                assert_t(false);
+                buf[len - 3] = buf[len - 2];
+                buf[len - 2] = buf[len - 1];
+                buf[len - 1] = '\0';
+            }
+        }
+
+        
+        for (int idx = len - 1; idx >= 0; idx--)
+        {
+            char next_char = buf[idx];
+            bool is_no_zero = next_char > 48 && next_char <= 57;
+            bool is_dot = (next_char == char('.'));
+            if (is_dot || is_no_zero)
+            {
+                buf[idx + 1] = char('\0');
+                break;
+            }
+        }
+
+
+        return TString(buf);
     }
     return std::to_string(value).c_str();
 };
@@ -1005,7 +1070,11 @@ bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
         //code_buffer.append("}"); 
         //if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         );
-    case EOpBreak:NODE_VISIT_FUNC(code_buffer.append("break;");,,);
+    case EOpBreak:NODE_VISIT_FUNC(code_buffer.append("break;"); , , );
+    case EOpKill:NODE_VISIT_FUNC(code_buffer.append("discard;");,,);
+    default:
+        assert_t(false);
+        break;
     }
 
     if (node->getExpression())
@@ -1056,9 +1125,17 @@ bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
     return false; /* visit the switch node on high level */
 }
 
+void init_ast_to_glsl()
+{
+    InitializeProcess();
+}
 
+void finish_ast_to_glsl()
+{
+    FinalizeProcess();
+}
 
-void ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, char* compiled_buffer, int& compiled_size)
+bool ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, char* compiled_buffer, int& compiled_size)
 {
     int shader_size = *shaderLengths;
     int sharp_pos = 0;
@@ -1077,7 +1154,7 @@ void ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, cha
     int main_size = shader_size - sharp_pos;
     if (main_size <= 0)
     {
-        return;
+        return false;
     }
 
 	const int defaultVersion = 100;
@@ -1085,53 +1162,82 @@ void ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, cha
 	const bool forceVersionProfile = false;
 	const bool isForwardCompatible = false;
 
-    //https://raytracing-docs.nvidia.com/mdl/api/mi_neuray_example_df_vulkan.html
-
     EShMessages messages = EShMsgCascadingErrors;
     messages = static_cast<EShMessages>(messages | EShMsgAST);
     messages = static_cast<EShMessages>(messages | EShMsgHlslLegalization);
 
-    std::string code((const char*)shaderStrings + sharp_pos, main_size);
-
-
-    InitializeProcess();
-
-	glslang::TShader shader(EShLangFragment);
+    std::string src_code((const char*)shaderStrings + sharp_pos, main_size);
     {
-        const char* shader_strings = code.data();
-        const int shader_lengths = static_cast<int>(code.size());
-        shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
-        shader.setEntryPoint("main");
-        shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
-    }
-
-	TIntermediate* intermediate = shader.getIntermediate();
-
-    TAstToGLTraverser tangram_tranverser;
-    
-    TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
-    if (root_aggregate != nullptr)
-    {
-        // tranverse linker object at first
-        TIntermSequence& sequence = root_aggregate->getSequence();
-        TIntermSequence sequnce_reverse;
-        for (TIntermSequence::reverse_iterator sit = sequence.rbegin(); sit != sequence.rend(); sit++)
+        glslang::TShader shader(EShLangFragment);
         {
-            sequnce_reverse.push_back(*sit);
+            const char* shader_strings = src_code.data();
+            const int shader_lengths = static_cast<int>(src_code.size());
+            shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
+            shader.setEntryPoint("main");
+            shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
         }
-        sequence = sequnce_reverse;
+
+        TIntermediate* intermediate = shader.getIntermediate();
+
+        TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
+        if (root_aggregate != nullptr)
+        {
+            // tranverse linker object at first
+            TIntermSequence& sequence = root_aggregate->getSequence();
+            TIntermSequence sequnce_reverse;
+            for (TIntermSequence::reverse_iterator sit = sequence.rbegin(); sit != sequence.rend(); sit++)
+            {
+                sequnce_reverse.push_back(*sit);
+            }
+            sequence = sequnce_reverse;
+        }
+        else
+        {
+            assert_t(false);
+        }
+
+        TAstToGLTraverser tangram_tranverser;
+        tangram_tranverser.preTranverse(intermediate);
+        intermediate->getTreeRoot()->traverse(&tangram_tranverser);
+
+        memcpy(compiled_buffer, tangram_tranverser.getCodeBuffer().data(), tangram_tranverser.getCodeBuffer().size());
+        compiled_size = tangram_tranverser.getCodeBuffer().size();
     }
-    else
+
+    // validation
+#if TANGRAM_DEBUG
+    std::string dst_code((const char*)compiled_buffer, compiled_size);
     {
-        assert_t(false);
+        glslang::TShader shader(EShLangFragment);
+        {
+            const char* shader_strings = dst_code.data();
+            const int shader_lengths = static_cast<int>(dst_code.size());
+            shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
+            shader.setEntryPoint("main");
+        }
+        bool is_success = shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
+
+        if(!is_success)
+        {
+            {
+                std::string out_file_path("H:/TanGram/tangram/source/resource/src.hlsl");
+                std::ofstream out_file = std::ofstream(out_file_path, std::ios::out | std::ios::binary);
+                out_file.write(src_code.data(), src_code.size());
+                out_file.close();
+            }
+
+            {
+                std::string out_file_path("H:/TanGram/tangram/source/resource/dst.hlsl");
+                std::ofstream out_file = std::ofstream(out_file_path, std::ios::out | std::ios::binary);
+                out_file.write(dst_code.data(), dst_code.size());
+                out_file.close();
+            }
+        }
+        assert_t(is_success);
     }
-
-    tangram_tranverser.preTranverse(intermediate);
- 	intermediate->getTreeRoot()->traverse(&tangram_tranverser);
-
-    memcpy(compiled_buffer, tangram_tranverser.getCodeBuffer().data(), tangram_tranverser.getCodeBuffer().size());
-    compiled_size = tangram_tranverser.getCodeBuffer().size();
+#endif
     
-    FinalizeProcess();
+
+    return true;
 }
 

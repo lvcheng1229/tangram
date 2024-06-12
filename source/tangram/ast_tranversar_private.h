@@ -74,6 +74,7 @@ private:
     std::unordered_map<int, TIntermSymbol*> loop_header_symbols;
 };
 
+
 class TAstToGLTraverser : public TIntermTraverser {
 public:
     TAstToGLTraverser() :
@@ -115,6 +116,7 @@ protected:
         bool is_vector_swizzle = false;
         bool is_subvector_scalar = false;
         bool is_in_loop_header = false;
+        int component_func_visit_index = 0;
     };
 
     SParserContext parser_context;
