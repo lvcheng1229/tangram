@@ -381,7 +381,7 @@ void TestGlobalASTToGL()
 
 	int success_num = 0;
 
-	for (int idx = 800; idx < shader_archive.ShaderEntries.size(); idx++)
+	for (int idx = 5623; idx < shader_archive.ShaderEntries.size(); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);

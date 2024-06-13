@@ -97,6 +97,8 @@ public:
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
 private:
+    void emitTypeConvert(TVisit visit, TIntermUnary* node, const TString& unaryName, const TString& vecName, bool onlyConvertVec = false);
+
     void constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type);
     void constUnionEnd(const TIntermConstantUnion* const_untion);
 
