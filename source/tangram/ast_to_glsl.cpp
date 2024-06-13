@@ -275,22 +275,6 @@ TString TAstToGLTraverser::getArraySize(const TType& type)
 
 bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
-    const auto binary_const_union_pre_left = [&]() {
-        TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
-        if (contant_union) { constUnionBegin(contant_union, node->getLeft()->getBasicType()); } };
-
-    const auto binary_const_union_in_left = [&]() {
-        TIntermConstantUnion* contant_union = node->getLeft()->getAsConstantUnion();
-        if (contant_union) { constUnionEnd(contant_union); }};
-
-    const auto binary_const_union_in_right = [&]() {
-        TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
-        if (contant_union) { constUnionBegin(contant_union, node->getRight()->getBasicType()); }; };
-
-    const auto binary_const_union_post_right = [&]() {
-        TIntermConstantUnion* contant_union = node->getRight()->getAsConstantUnion();
-        if (contant_union) { constUnionEnd(contant_union); }};
-
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
@@ -342,11 +326,9 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             if (!enable_white_space_optimize) { code_buffer.append(" "); }
             code_buffer.append("=");
             if (!enable_white_space_optimize) { code_buffer.append(" "); }
-            binary_const_union_in_right();
         }
         else if (visit == EvPostVisit)
         {
-            binary_const_union_post_right();
             if (parser_context.is_in_loop_header == false) { code_buffer.append(";");}
             if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
@@ -381,8 +363,10 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
         }
         break;
     }
-    case EOpIndexIndirect: NODE_VISIT_FUNC(, code_buffer.append("[");, code_buffer.append("]"); );
-    case EOpIndexDirect: NODE_VISIT_FUNC(if (node->getLeft()->getAsBinaryNode())
+    case EOpIndexIndirect: 
+    NODE_VISIT_FUNC(, code_buffer.append("["); , code_buffer.append("]"); );
+    case EOpIndexDirect: 
+    NODE_VISIT_FUNC(if (node->getLeft()->getAsBinaryNode())
     {
         TIntermBinary* bin_node = node->getLeft()->getAsBinaryNode();
         TOperator node_operator = bin_node->getOp();
@@ -441,14 +425,14 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     // binary operations
     //
 
-    case EOpAdd:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("+"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
-    case EOpSub:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("-"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
-    case EOpMul:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("*"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
-    case EOpDiv:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("/"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
-    case EOpMod:NODE_VISIT_FUNC(code_buffer.append("(");binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("%"); binary_const_union_in_right(), binary_const_union_post_right();code_buffer.append(")"); );
+    case EOpAdd:NODE_VISIT_FUNC(code_buffer.append("("); , ; code_buffer.append("+");, ; code_buffer.append(")"); );
+    case EOpSub:NODE_VISIT_FUNC(code_buffer.append("("); , ; code_buffer.append("-");, ; code_buffer.append(")"); );
+    case EOpMul:NODE_VISIT_FUNC(code_buffer.append("("); , ; code_buffer.append("*");, ; code_buffer.append(")"); );
+    case EOpDiv:NODE_VISIT_FUNC(code_buffer.append("("); , ; code_buffer.append("/");, ; code_buffer.append(")"); );
+    case EOpMod:NODE_VISIT_FUNC(code_buffer.append("("); , ; code_buffer.append("%");, ; code_buffer.append(")"); );
     case EOpRightShift:NODE_VISIT_FUNC(, code_buffer.append(">>"), );
     case EOpLeftShift:NODE_VISIT_FUNC(, code_buffer.append("<<"), );
-    case EOpAnd:NODE_VISIT_FUNC(code_buffer.append("("); binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("&"); binary_const_union_in_right(), binary_const_union_post_right(); code_buffer.append(")"));
+    case EOpAnd:NODE_VISIT_FUNC(code_buffer.append("(");, code_buffer.append("&");, code_buffer.append(")"));
     case EOpEqual:NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("=="), code_buffer.append(")"));
     case EOpNotEqual:NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("!="), code_buffer.append(")"));
     
@@ -466,9 +450,9 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     case EOpInclusiveOr: NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("|"), code_buffer.append(")"));
     case EOpExclusiveOr: NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("^"), code_buffer.append(")"));
 
-    case EOpVectorTimesScalar:NODE_VISIT_FUNC(code_buffer.append("("); binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("*"); , code_buffer.append(")"));
-    case EOpVectorTimesMatrix: NODE_VISIT_FUNC(code_buffer.append("("); binary_const_union_pre_left(), binary_const_union_in_left(); code_buffer.append("*");, code_buffer.append(")"));
-    case EOpMatrixTimesVector:NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("*"); binary_const_union_in_right();, binary_const_union_post_right(); code_buffer.append(")"));
+    case EOpVectorTimesScalar:NODE_VISIT_FUNC(code_buffer.append("(");, code_buffer.append("*");, code_buffer.append(")"));
+    case EOpVectorTimesMatrix: NODE_VISIT_FUNC(code_buffer.append("("); , code_buffer.append("*"); , code_buffer.append(")"));
+    case EOpMatrixTimesVector:NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("*");, code_buffer.append(")"));
     case EOpMatrixTimesScalar:NODE_VISIT_FUNC(, code_buffer.append("*"), );
     case EOpMatrixTimesMatrix: NODE_VISIT_FUNC(code_buffer.append("("), code_buffer.append("*"), code_buffer.append(")"));
 
@@ -498,7 +482,7 @@ void TAstToGLTraverser::emitTypeConvert(TVisit visit, TIntermUnary* node, const 
         }
         else if(onlyConvertVec == false)
         { 
-            code_buffer.append("uint"); 
+            code_buffer.append(unaryName);
             code_buffer.append("(");
         }      
     }
@@ -518,10 +502,8 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
-    case EOpPostIncrement: NODE_VISIT_FUNC(, , code_buffer.append("++")
-        
-        ; );
-    case EOpPostDecrement: NODE_VISIT_FUNC(, , code_buffer.append("--"); );
+    case EOpPostIncrement: NODE_VISIT_FUNC(, , code_buffer.append("++"); if (parser_context.is_in_loop_header == false) { code_buffer.append(";"); });
+    case EOpPostDecrement: NODE_VISIT_FUNC(, , code_buffer.append("--"); if (parser_context.is_in_loop_header == false) { code_buffer.append(";"); });
     case EOpPreIncrement: NODE_VISIT_FUNC(code_buffer.append("++"), , ; );
     case EOpPreDecrement: NODE_VISIT_FUNC(code_buffer.append("--"), , ; );
 
@@ -571,6 +553,13 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpDPdy:       NODE_VISIT_FUNC(code_buffer.append("dFdx("); , , code_buffer.append(")"); );
     case EOpReflect: NODE_VISIT_FUNC(code_buffer.append("reflect(");, , code_buffer.append(")"); );
 
+    case EOpMatrixInverse:  NODE_VISIT_FUNC(code_buffer.append("inverse(");, , code_buffer.append(")"); );
+    case EOpTranspose:      NODE_VISIT_FUNC(code_buffer.append("transpose(");, , code_buffer.append(")"); );
+    
+    case EOpAny:            NODE_VISIT_FUNC(code_buffer.append("any(");, , code_buffer.append(")"); );
+    case EOpAll:            NODE_VISIT_FUNC(code_buffer.append("all(");, , code_buffer.append(")"); );
+
+
     case EOpNegative:NODE_VISIT_FUNC(code_buffer.append("-");, , );
 
     // GLSL spec 4.5
@@ -590,7 +579,7 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
         // bool -> *
     case EOpConvBoolToUint:    emitTypeConvert(visit, node, "uint", "uvec"); break;
-    case EOpConvBoolToInt:     emitTypeConvert(visit, node, "int", "int"); break;
+    case EOpConvBoolToInt:     emitTypeConvert(visit, node, "int", "ivec"); break;
     case EOpConvBoolToFloat16: emitTypeConvert(visit, node, "half", "half"); break;
     case EOpConvBoolToFloat:   emitTypeConvert(visit, node, "float", "vec"); break;
 
@@ -601,9 +590,12 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpConvIntToFloat:    emitTypeConvert(visit, node, "float", "vec"); break;
 
     // uint32_t -> (u)int*
-    case EOpConvUintToInt:     emitTypeConvert(visit, node, "int", "int"); break;
+    case EOpConvUintToInt:     emitTypeConvert(visit, node, "int", "ivec"); break;
 
-    case EOpConvUintToFloat:    emitTypeConvert(visit, node, "#err", "vec", true); break;
+    case EOpConvUintToFloat:   emitTypeConvert(visit, node, "#err", "vec", true); break;
+    
+        // float32_t -> int*
+    case EOpConvFloatToInt:   emitTypeConvert(visit, node, "int", "ivec"); break;
 
     // float32_t -> uint*
     case EOpConvFloatToUint8:  NODE_VISIT_FUNC(code_buffer.append("uint8(");,, code_buffer.append(")"););
@@ -964,12 +956,12 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         case EOpDot: 
         case EOpCross:
 
-        //case EOpLessThan:         break;
-        //case EOpGreaterThan:      break;
-        //case EOpLessThanEqual:    break;
-        //case EOpGreaterThanEqual: break;
-        //case EOpVectorEqual:      break;
-        //case EOpVectorNotEqual:   break;
+        case EOpLessThan:         
+        case EOpGreaterThan:      
+        case EOpLessThanEqual:    
+        case EOpGreaterThanEqual: 
+        case EOpVectorEqual:      
+        case EOpVectorNotEqual:   
 
         case EOpMod:  
         case EOpModf: 
@@ -984,6 +976,59 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         case EOpConstructMat4x2:
         case EOpConstructMat4x3:
         case EOpConstructMat4x4:
+
+        case EOpTextureGrad:
+        case EOpTextureGradOffset:
+
+        case EOpAny:
+        case EOpAll:
+        {
+            is_construct_vector = true;
+            break;
+        }
+        default:
+        {
+            break;
+        }
+        }
+    }
+
+    if (getParentNode()->getAsBinaryNode())
+    {
+        TIntermBinary* parent_node = getParentNode()->getAsBinaryNode();
+        TOperator node_operator = parent_node->getOp();
+        switch (node_operator)
+        {
+        case EOpAssign:
+
+        case  EOpAdd:
+        case  EOpSub:
+        case  EOpMul:
+        case  EOpDiv:
+        case  EOpMod:
+        case  EOpRightShift:
+        case  EOpLeftShift:
+        case  EOpAnd:
+        case  EOpInclusiveOr:
+        case  EOpExclusiveOr:
+        case  EOpEqual:
+        case  EOpNotEqual:
+        case  EOpVectorEqual:
+        case  EOpVectorNotEqual:
+        case  EOpLessThan:
+        case  EOpGreaterThan:
+        case  EOpLessThanEqual:
+        case  EOpGreaterThanEqual:
+        case  EOpComma:
+
+        case  EOpVectorTimesScalar:
+        case  EOpVectorTimesMatrix:
+        case  EOpMatrixTimesVector:
+        case  EOpMatrixTimesScalar:
+
+        case  EOpLogicalOr:
+        case  EOpLogicalXor:
+        case  EOpLogicalAnd:
         {
             is_construct_vector = true;
             break;
@@ -1131,6 +1176,7 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 {
     bool is_declared = false;
 
+
     {
         long long symbol_id = node->getId();
         auto iter = declared_symbols_id.find(symbol_id);
@@ -1147,12 +1193,27 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
     if (is_declared == false)
     {
         TString type_str = getTypeText(node->getType());
-        if (type_str != "")
+
+        const TString& symbol_name = node->getName();
+        bool is_build_in_variable = false;
+        if ((symbol_name[0] == 'g') && (symbol_name[1] == 'l') && (symbol_name[2] == '_'))
+        {
+            is_build_in_variable = true;
+        }
+
+        if ((type_str != "") && (!is_build_in_variable))
         {
             code_buffer.append(type_str);
             code_buffer.append(" ");
         }
     }
+
+#if TANGRAM_DEBUG
+    if (node->getName() == "_67")
+    {
+        int aa = 1;
+    }
+#endif
 
     code_buffer.append(node->getName());
     
@@ -1236,25 +1297,17 @@ bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
     TOperator node_operator = node->getFlowOp();
     switch (node->getFlowOp())
     {
-    case EOpDefault: NODE_VISIT_FUNC(
-        code_buffer.append("default:");
-        if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
-        //code_buffer.append("{");
-        //if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
-        , 
-           , 
-        //code_buffer.append("}"); 
-        //if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
-        );
+    case EOpDefault: NODE_VISIT_FUNC(code_buffer.append("default:"); if (!enable_line_feed_optimize) { code_buffer.append("\n"); }, , );
     case EOpBreak:NODE_VISIT_FUNC(code_buffer.append("break;"); , , );
     case EOpKill:NODE_VISIT_FUNC(code_buffer.append("discard;"); , , );
     case EOpContinue:NODE_VISIT_FUNC(code_buffer.append("continue;");,,);
+    case EOpCase: NODE_VISIT_FUNC(code_buffer.append("case "); , , code_buffer.append(":"););
     default:
         assert_t(false);
         break;
     }
 
-    if (node->getExpression())
+    if (node->getExpression() && (node->getFlowOp() != EOpCase))
     {
         assert_t(false);
     }
