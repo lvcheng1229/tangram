@@ -42,6 +42,25 @@ private:
     std::unordered_map<long long, int> symbol_max_line;
 };
 
+class CSymbolNameMapper
+{
+public:
+    CSymbolNameMapper();
+    const TString& getSymbolMappedName(long long symbol_id);
+private:
+    const TString allocNextSymbolName();
+
+    int symbol_index = 0;
+    std::vector<char> candidate_char;
+    std::unordered_map<long long, TString> symbol_name_mapped;
+
+    int current_length = 1;
+
+    int uppercase_offset;
+    int lowercase_offset;
+    int digital_offset;
+};
+
 class TSubScopeTraverser : public TIntermTraverser {
 public:
     TSubScopeTraverser(const std::set<long long>* input_declared_symbols_id)
@@ -62,6 +81,7 @@ public:
     inline void resetSubScopeMaxLine() { subscope_max_line = 0; subscope_symbols.clear(); };
     inline std::unordered_map<int, TIntermSymbol*>& getSubScopeSymbols() { return subscope_symbols; }
     inline int getSubScopeMaxLine() { return subscope_max_line; };
+
 
 private:
     const std::set<long long>* declared_symbols_id;
@@ -122,10 +142,13 @@ private:
     TString getArraySize(const TType& type);
 
 protected:
+    CSymbolNameMapper symbol_name_mapper;
+
+
     bool enable_line_feed_optimize = false;
     bool enable_white_space_optimize = true;
     bool ignore_medium_presion_out = true;
-    //bool en
+    bool enable_symbol_name_optimization = true;
 
     struct SParserContext
     {

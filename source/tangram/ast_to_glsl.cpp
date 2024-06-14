@@ -10,6 +10,73 @@
 #include <iostream>
 #endif
 
+CSymbolNameMapper::CSymbolNameMapper()
+{
+    uppercase_offset = 65;  // 65 - 90
+    lowercase_offset = 97;  // 97 - 122
+    digital_offset = 48;    // 48 - 57
+
+    candidate_char.resize(26 + 26 + 10);
+    int global_offset = 0;
+    for (int idx = 0; idx < 26; idx++)
+    {
+        candidate_char[global_offset] = char(uppercase_offset + idx);
+        global_offset++;
+    }
+
+    for (int idx = 0; idx < 26; idx++)
+    {
+        candidate_char[global_offset] = char(lowercase_offset + idx);
+        global_offset++;
+    }
+
+    for (int idx = 0; idx < 10; idx++)
+    {
+        candidate_char[global_offset] = char(digital_offset + idx);
+        global_offset++;
+    }
+}
+
+const TString& CSymbolNameMapper::getSymbolMappedName(long long symbol_id)
+{
+    auto iter = symbol_name_mapped.find(symbol_id);
+    if (iter != symbol_name_mapped.end())
+    {
+        return iter->second;
+    }
+    else
+    {
+        symbol_name_mapped[symbol_id] = allocNextSymbolName();
+        return symbol_name_mapped[symbol_id];
+    }
+}
+
+const TString CSymbolNameMapper::allocNextSymbolName()
+{
+    if (symbol_index < 26)
+    {
+        TString symbol_name;
+        symbol_name.resize(1);
+        symbol_name[0] = char(symbol_index + uppercase_offset);
+        symbol_index++;
+        return symbol_name;
+    }
+
+    int first = symbol_index % 26;
+    TString symbol_name;
+    symbol_name.insert(symbol_name.end(),char(first + uppercase_offset));
+
+    int var = first / 26;
+    while (var != 0)
+    {
+        int char_index = (var % 66);
+        symbol_name.insert(symbol_name.end(), candidate_char[char_index]);
+        var = var / 66;
+    }
+    symbol_index++;
+    return symbol_name;
+}
+
 void TAstToGLTraverser::preTranverse(TIntermediate* intermediate)
 {
     code_buffer.append("#version ");
@@ -49,7 +116,14 @@ void TAstToGLTraverser::declareSubScopeSymbol()
             declared_symbols_id.insert(symbol_node->getId());
             code_buffer.append(getTypeText(symbol_node->getType()));
             code_buffer.append(" ");
-            code_buffer.append(symbol_node->getName());
+            if (enable_symbol_name_optimization)
+            {
+                code_buffer.append(symbol_name_mapper.getSymbolMappedName(symbol_node->getId()));
+            }
+            else
+            {
+                code_buffer.append(symbol_node->getName());
+            }
             code_buffer.append(";");
             if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }
@@ -1346,7 +1420,15 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
     }
 #endif
 
-    code_buffer.append(node->getName());
+    if (enable_symbol_name_optimization)
+    {
+        code_buffer.append(symbol_name_mapper.getSymbolMappedName(node->getId()));
+    }
+    else
+    {
+        code_buffer.append(node->getName());
+    }
+    
     
     if (is_declared == false && node->getType().isArray())
     {
@@ -1397,7 +1479,15 @@ bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
             declared_symbols_id.insert(symbol_node->getId());
             code_buffer.append(getTypeText(symbol_node->getType()));
             code_buffer.append(" ");
-            code_buffer.append(symbol_node->getName());
+            if (enable_symbol_name_optimization)
+            {
+                code_buffer.append(symbol_name_mapper.getSymbolMappedName(symbol_node->getId()));
+            }
+            else
+            {
+                code_buffer.append(symbol_node->getName());
+            }
+            
             code_buffer.append(";");
             if (!enable_line_feed_optimize) { code_buffer.append("\n"); }
         }

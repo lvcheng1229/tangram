@@ -95,6 +95,7 @@ void TSymbolScopeTraverser::visitSymbol(TIntermSymbol* node)
 }
 
 
+
 bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
 	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);

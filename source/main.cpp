@@ -429,10 +429,10 @@ int main()
 	//}
 	
 	
-	//{
-	//	TestSingleAstToGL();
-	//	return 0;
-	//}
+	{
+		TestSingleAstToGL();
+		return 0;
+	}
 
 	{
 		TestGlobalASTToGL();
