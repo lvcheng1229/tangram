@@ -17,6 +17,19 @@ IN;\
 POST;\
 }break;}\
 
+class TInvalidShaderTraverser : public TIntermTraverser {
+public:
+    TInvalidShaderTraverser()
+        :is_invalid_shader(true), TIntermTraverser(true, true, true, false) {};
+
+    virtual bool visitBinary(TVisit, TIntermBinary* node);
+    virtual void visitSymbol(TIntermSymbol* node);
+
+    inline bool getIsInvalidShader() { return is_invalid_shader; }
+private:
+    bool is_invalid_shader;
+};
+
 class TSymbolScopeTraverser : public TIntermTraverser {
 public:
     TSymbolScopeTraverser() : TIntermTraverser(true, true, true, false) {}
@@ -112,6 +125,7 @@ protected:
     bool enable_line_feed_optimize = false;
     bool enable_white_space_optimize = true;
     bool ignore_medium_presion_out = true;
+    //bool en
 
     struct SParserContext
     {

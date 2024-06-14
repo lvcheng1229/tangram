@@ -1,6 +1,39 @@
 #include "ast_tranversar_private.h"
 #include <algorithm>
 
+bool TInvalidShaderTraverser::visitBinary(TVisit visit, TIntermBinary* node)
+{
+	TOperator node_operator = node->getOp();
+	switch (node_operator)
+	{
+	case EOpAssign:
+	{
+		const TType& type = node->getType();
+		if (type.isArray())
+		{
+			const TArraySizes* array_sizes = type.getArraySizes();
+			for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
+			{
+				int size = array_sizes->getDimSize(i);
+				if ((array_sizes->getNumDims() == 1) && (size == 1))
+				{
+					is_invalid_shader = false;
+				}
+			}
+		};
+	}
+	};
+	return true;
+}
+
+void TInvalidShaderTraverser::visitSymbol(TIntermSymbol* node)
+{
+	if (!node->getConstArray().empty())
+	{
+		is_invalid_shader = false;
+	}
+}
+
 bool TSymbolScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
 	TOperator node_operator = node->getOp();

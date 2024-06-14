@@ -272,6 +272,14 @@ void MannualCodeBlockGenTest()
 		bool b_replaced = false;
 		if (replaced_size != src_code_size)
 		{
+			bool is_gl =
+				(dst_code[0] == 'L') &&
+				(dst_code[1] == 'S') &&
+				(dst_code[2] == 'L') &&
+				(dst_code[3] == 'G');
+
+			assert(is_gl);
+
 			char magic_num[11] = { 'i','n', 't', ' ', 'c', 'l',  '=', '4' , '2',';','\0' };
 			size_t new_shader_size = replace_code_block(dst_code.data(), replaced_size, magic_num, 10, cluster_shading_code, 4752);
 
@@ -381,7 +389,7 @@ void TestGlobalASTToGL()
 
 	int success_num = 0;
 
-	for (int idx = 8318; idx < shader_archive.ShaderEntries.size(); idx++)
+	for (int idx = 27154; idx < shader_archive.ShaderEntries.size(); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
@@ -419,7 +427,7 @@ int main()
 	//	MannualCodeBlockGenTest();
 	//	return 0;
 	//}
-	//
+	
 	
 	//{
 	//	TestSingleAstToGL();

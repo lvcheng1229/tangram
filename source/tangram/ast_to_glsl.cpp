@@ -502,6 +502,7 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
+    case EOpLogicalNot:NODE_VISIT_FUNC(code_buffer.append("(!"); , , code_buffer.append(")"); );
     case EOpPostIncrement: NODE_VISIT_FUNC(, , code_buffer.append("++"); if (parser_context.is_in_loop_header == false) { code_buffer.append(";"); });
     case EOpPostDecrement: NODE_VISIT_FUNC(, , code_buffer.append("--"); if (parser_context.is_in_loop_header == false) { code_buffer.append(";"); });
     case EOpPreIncrement: NODE_VISIT_FUNC(code_buffer.append("++"), , ; );
@@ -547,6 +548,7 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpInt16BitsToFloat16:  NODE_VISIT_FUNC(code_buffer.append("int16BitsToFloat16(");,, code_buffer.append(")"); );
     case EOpUint16BitsToFloat16:  NODE_VISIT_FUNC(code_buffer.append("uint16BitsToFloat16(");,, code_buffer.append(")"); );
 
+    //Geometric Functions
     case EOpLength: NODE_VISIT_FUNC(code_buffer.append("length(");, , code_buffer.append(")"); );
     case EOpNormalize: NODE_VISIT_FUNC(code_buffer.append("normalize("); , , code_buffer.append(")"); );
     case EOpDPdx:       NODE_VISIT_FUNC(code_buffer.append("dFdx("); , , code_buffer.append(")"); );
@@ -559,11 +561,12 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpAny:            NODE_VISIT_FUNC(code_buffer.append("any(");, , code_buffer.append(")"); );
     case EOpAll:            NODE_VISIT_FUNC(code_buffer.append("all(");, , code_buffer.append(")"); );
 
-
+    // todo: remove (
     case EOpNegative:NODE_VISIT_FUNC(code_buffer.append("-");, , );
 
     // GLSL spec 4.5
     // 4.1.10. Implicit Conversions
+
      // * -> bool
     case EOpConvInt8ToBool:    NODE_VISIT_FUNC(code_buffer.append("bool");; code_buffer.append("("); , , code_buffer.append(")"););
     case EOpConvUint8ToBool:   NODE_VISIT_FUNC(code_buffer.append("bool");; code_buffer.append("("); , , code_buffer.append(")"););
@@ -583,16 +586,34 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
     case EOpConvBoolToFloat16: emitTypeConvert(visit, node, "half", "half"); break;
     case EOpConvBoolToFloat:   emitTypeConvert(visit, node, "float", "vec"); break;
 
+    //todo: fix me
+    // If the operand types do not match, then
+    // there must be a conversion from ¡°Implicit Conversions¡± applied to one operand that can make
+    // them match, in which case this conversion is done
+    
+    // wrong operand types: no operation '==' exists that takes a left-hand operand of type ' temp highp uint' and a right operand of type 'layout( column_major std140 offset=1424) uniform highp int' (or there is no acceptable conversion)
+    
     // int32_t -> (u)int*
-    case EOpConvIntToUint:    NODE_VISIT_FUNC();
+    case EOpConvIntToUint:    NODE_VISIT_FUNC(
+        TIntermBinary* binary_node = getParentNode()->getAsBinaryNode();
+        if (binary_node && (binary_node->getOp() == EOpEqual))
+        {
+            code_buffer.append("uint(");
+        },,
+            TIntermBinary* binary_node = getParentNode()->getAsBinaryNode();
+        if (binary_node && (binary_node->getOp() == EOpEqual))
+        {
+            code_buffer.append(")");
+        };
+    );
 
      // int32_t -> float*
-    case EOpConvIntToFloat:    emitTypeConvert(visit, node, "float", "vec"); break;
+    case EOpConvIntToFloat:    emitTypeConvert(visit, node, "float", "vec"/*, true*, todo: fix me, implict convert*/); break;
 
     // uint32_t -> (u)int*
     case EOpConvUintToInt:     emitTypeConvert(visit, node, "int", "ivec"); break;
 
-    case EOpConvUintToFloat:   emitTypeConvert(visit, node, "#err", "vec", true); break;
+    case EOpConvUintToFloat:   emitTypeConvert(visit, node, "float", "vec"/*, true*, todo: fix me, implict convert*/); break;
     
         // float32_t -> int*
     case EOpConvFloatToInt:   emitTypeConvert(visit, node, "int", "ivec"); break;
@@ -651,6 +672,7 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     case EOpDistance: NODE_VISIT_FUNC(code_buffer.append("distance("); , code_buffer.append(","), code_buffer.append(")"); );
     case EOpDot: NODE_VISIT_FUNC(code_buffer.append("dot(");  , code_buffer.append(",");, code_buffer.append(")"); );
     case EOpCross: NODE_VISIT_FUNC(code_buffer.append("cross("); ,  code_buffer.append(","); ,; code_buffer.append(")"); );
+    case EOpRefract:       NODE_VISIT_FUNC(code_buffer.append("refract(");, code_buffer.append(","); , code_buffer.append(")"); );
 
     case EOpConstructVec2:NODE_VISIT_FUNC(code_buffer.append("vec2("), code_buffer.append(","), code_buffer.append(")"));
     case EOpConstructVec3:NODE_VISIT_FUNC(code_buffer.append("vec3("), code_buffer.append(","), code_buffer.append(")"));
@@ -756,19 +778,23 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
     case EOpConstructF16Mat4x3:NODE_VISIT_FUNC(code_buffer.append("f16mat4x3("), code_buffer.append(","), code_buffer.append(")"));
     case EOpConstructF16Mat4x4:NODE_VISIT_FUNC(code_buffer.append("f16mat4("), code_buffer.append(","), code_buffer.append(")"))
 
-   // aggrate than
+    // 5.9 Expressions
+    // aggrate than 
+    // component-wise relational  comparisons on vectors
     case EOpLessThan:         NODE_VISIT_FUNC(code_buffer.append("lessThan("), code_buffer.append(","), code_buffer.append(")"));
-    case EOpGreaterThan:       assert_t(false); break;
-    case EOpLessThanEqual:     assert_t(false); break;
-    case EOpGreaterThanEqual:  assert_t(false); break;
-    case EOpVectorEqual:      assert_t(false); break;
-    case EOpVectorNotEqual:   assert_t(false); break;
+    case EOpGreaterThan:      NODE_VISIT_FUNC(code_buffer.append("greaterThan("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpLessThanEqual:    NODE_VISIT_FUNC(code_buffer.append("lessThanEqual("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpGreaterThanEqual: NODE_VISIT_FUNC(code_buffer.append("greaterThanEqual("), code_buffer.append(","), code_buffer.append(")"));
+    
+    //component-wise equality
+    case EOpVectorEqual:      NODE_VISIT_FUNC(code_buffer.append("equal("), code_buffer.append(","), code_buffer.append(")"));
+    case EOpVectorNotEqual:   NODE_VISIT_FUNC(code_buffer.append("notEqual("), code_buffer.append(","), code_buffer.append(")"));
 
     case EOpMod:           NODE_VISIT_FUNC(code_buffer.append("mod("), code_buffer.append(","), code_buffer.append(")"));
     case EOpModf:           NODE_VISIT_FUNC(code_buffer.append("modf("), code_buffer.append(","), code_buffer.append(")"));
     case EOpPow:           NODE_VISIT_FUNC(code_buffer.append("pow(");, code_buffer.append(",");, code_buffer.append(")"); );
 
-    case EOpAtan:          assert_t(false); break;
+    case EOpAtan:          NODE_VISIT_FUNC(code_buffer.append("atan("); , code_buffer.append(","); , code_buffer.append(")"); );
 
     case EOpLinkerObjects:NODE_VISIT_FUNC(, code_buffer.append(";"); if (!enable_line_feed_optimize) { code_buffer.append("\n"); }, code_buffer.append(";"); if (!enable_line_feed_optimize) { code_buffer.append("\n"); });
     case EOpTextureQuerySize:NODE_VISIT_FUNC(code_buffer.append("textureSize("), code_buffer.append(","), code_buffer.append(")"));
@@ -941,6 +967,8 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
     int size = node->getType().computeNumComponents();
 
     bool is_construct_vector = false;
+    bool is_construct_matrix = false;
+
     if (getParentNode()->getAsAggregate())
     {
         TIntermAggregate* parent_node = getParentNode()->getAsAggregate();
@@ -952,20 +980,20 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         case EOpClamp:
         case EOpMix:
         case EOpStep:
-        case EOpDistance: 
-        case EOpDot: 
+        case EOpDistance:
+        case EOpDot:
         case EOpCross:
 
-        case EOpLessThan:         
-        case EOpGreaterThan:      
-        case EOpLessThanEqual:    
-        case EOpGreaterThanEqual: 
-        case EOpVectorEqual:      
-        case EOpVectorNotEqual:   
+        case EOpLessThan:
+        case EOpGreaterThan:
+        case EOpLessThanEqual:
+        case EOpGreaterThanEqual:
+        case EOpVectorEqual:
+        case EOpVectorNotEqual:
 
-        case EOpMod:  
-        case EOpModf: 
-        case EOpPow:  
+        case EOpMod:
+        case EOpModf:
+        case EOpPow:
 
         case EOpConstructMat2x2:
         case EOpConstructMat2x3:
@@ -977,8 +1005,30 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         case EOpConstructMat4x3:
         case EOpConstructMat4x4:
 
-        case EOpTextureGrad:
-        case EOpTextureGradOffset:
+        case  EOpTexture:
+        case  EOpTextureProj:
+        case  EOpTextureLod:
+        case  EOpTextureOffset:
+        case  EOpTextureFetch:
+        case  EOpTextureFetchOffset:
+        case  EOpTextureProjOffset:
+        case  EOpTextureLodOffset:
+        case  EOpTextureProjLod:
+        case  EOpTextureProjLodOffset:
+        case  EOpTextureGrad:
+        case  EOpTextureGradOffset:
+        case  EOpTextureProjGrad:
+        case  EOpTextureProjGradOffset:
+        case  EOpTextureGather:
+        case  EOpTextureGatherOffset:
+        case  EOpTextureGatherOffsets:
+        case  EOpTextureClamp:
+        case  EOpTextureOffsetClamp:
+        case  EOpTextureGradClamp:
+        case  EOpTextureGradOffsetClamp:
+        case  EOpTextureGatherLod:
+        case  EOpTextureGatherLodOffset:
+        case  EOpTextureGatherLodOffsets:
 
         case EOpAny:
         case EOpAll:
@@ -1023,8 +1073,6 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
 
         case  EOpVectorTimesScalar:
         case  EOpVectorTimesMatrix:
-        case  EOpMatrixTimesVector:
-        case  EOpMatrixTimesScalar:
 
         case  EOpLogicalOr:
         case  EOpLogicalXor:
@@ -1033,11 +1081,85 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
             is_construct_vector = true;
             break;
         }
+
+        case  EOpMatrixTimesVector:
+        case  EOpMatrixTimesScalar:
+        {
+            is_construct_vector = true;
+            if (node->getMatrixCols() > 1 && node->getMatrixRows() > 1)
+            {
+                is_construct_matrix = true;
+            }
+            break;
+        }
+
         default:
         {
             break;
         }
         }
+    }
+
+    if (is_construct_matrix)
+    {
+        int mat_row = node->getMatrixRows();
+        int mat_col = node->getMatrixCols();
+
+        int array_idx = 0;
+        for (int idx_row = 0; idx_row < mat_row; idx_row++)
+        {
+            switch (node->getBasicType())
+            {
+            case EbtDouble:
+                code_buffer.append("d");
+                break;
+            case EbtInt:
+                code_buffer.append("i");
+                break;
+            case EbtUint:
+                code_buffer.append("u");
+                break;
+            case EbtBool:
+                code_buffer.append("b");
+                break;
+            case EbtFloat:
+            default:
+                break;
+            };
+
+            code_buffer.append("vec");
+            code_buffer.append(std::to_string(mat_col).c_str());
+            code_buffer.append("(");
+            for (int idx_col = 0; idx_col < mat_col; idx_col++)
+            {
+                TBasicType const_type = constUnion[array_idx].getType();
+                switch (const_type)
+                {
+                case EbtDouble:
+                {
+                    code_buffer.append(OutputDouble(constUnion[array_idx].getDConst()));
+                    break;
+                }
+                default:
+                {
+                    assert_t(false);
+                    break;
+                }
+                }
+
+                if (idx_col != (mat_col - 1))
+                {
+                    code_buffer.append(",");
+                }
+            }
+            code_buffer.append(")");
+            if (idx_row != (mat_row - 1))
+            {
+                code_buffer.append(",");
+            }
+            array_idx++;
+        }
+        return;
     }
 
     if (is_construct_vector)
@@ -1086,7 +1208,16 @@ void TAstToGLTraverser::outputConstantUnion(const TIntermConstantUnion* node, co
         }
         case EbtDouble:
         {
+            if (constUnion[i].getDConst() < 0)
+            {
+                //todo: fix me
+                code_buffer.append("(");
+            }
             code_buffer.append(OutputDouble(constUnion[i].getDConst()));
+            if (constUnion[i].getDConst() < 0)
+            {
+                code_buffer.append(")");
+            }
             break;
         }
         case EbtUint:
@@ -1209,7 +1340,7 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
     }
 
 #if TANGRAM_DEBUG
-    if (node->getName() == "_67")
+    if (node->getName() == "_49")
     {
         int aa = 1;
     }
@@ -1222,9 +1353,25 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
         code_buffer.append(getArraySize(node->getType()));
     }
 
-    if (!node->getConstArray().empty())
+    if (!node->getConstArray().empty() && (is_declared == false))
     {
-        assert_t(false);
+        code_buffer.append("=");
+        TString type_str = node->getType().getBasicTypeString().c_str();
+        assert_t(node->isVector() == false);
+        assert_t(node->getType().getBasicType() == EbtFloat);
+        code_buffer.append(type_str);
+        code_buffer.append("[](");
+        const TConstUnionArray&  const_array = node->getConstArray();
+        for (int idx = 0; idx < const_array.size(); idx++)
+        {
+            code_buffer.append(OutputDouble(const_array[idx].getDConst()));
+            if (idx != (const_array.size() - 1))
+            {
+                code_buffer.append(",");
+            }
+        }
+        code_buffer.append(")");
+        
     }
     else if (node->getConstSubtree())
     {
@@ -1367,6 +1514,8 @@ void finish_ast_to_glsl()
 
 bool ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, char* compiled_buffer, int& compiled_size)
 {
+    static int invalid_num = 0;
+
     int shader_size = *shaderLengths;
     int sharp_pos = 0;
     for (int idx = 0; idx < shader_size; idx++)
@@ -1408,6 +1557,16 @@ bool ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, cha
         }
 
         TIntermediate* intermediate = shader.getIntermediate();
+        TInvalidShaderTraverser invalid_traverser;
+        intermediate->getTreeRoot()->traverse(&invalid_traverser);
+        if (!invalid_traverser.getIsInvalidShader())
+        {
+#if TANGRAM_DEBUG
+            std::cout << "invalid num:" << invalid_num << std::endl;
+#endif
+            invalid_num++;
+            return false;
+        }
 
         TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
         if (root_aggregate != nullptr)
