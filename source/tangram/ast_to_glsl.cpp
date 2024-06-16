@@ -1649,7 +1649,7 @@ bool ast_to_glsl(const char* const* shaderStrings, const int* shaderLengths, cha
         TIntermediate* intermediate = shader.getIntermediate();
         TInvalidShaderTraverser invalid_traverser;
         intermediate->getTreeRoot()->traverse(&invalid_traverser);
-        if (!invalid_traverser.getIsInvalidShader())
+        if (!invalid_traverser.getIsValidShader())
         {
 #if TANGRAM_DEBUG
             std::cout << "invalid num:" << invalid_num << std::endl;

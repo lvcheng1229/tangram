@@ -4,3 +4,4 @@ size_t replace_code_block(char* src_code, int size, char* replace_from, int repl
 void init_ast_to_glsl();
 void finish_ast_to_glsl();
 bool ast_to_glsl(const char* const* s, const int* l, char* compiled_buffer, int& compiled_size);
+bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLengths);

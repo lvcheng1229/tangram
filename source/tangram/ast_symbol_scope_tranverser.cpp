@@ -17,7 +17,7 @@ bool TInvalidShaderTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 				int size = array_sizes->getDimSize(i);
 				if ((array_sizes->getNumDims() == 1) && (size == 1))
 				{
-					is_invalid_shader = false;
+					is_valid_shader = false;
 				}
 			}
 		};
@@ -30,7 +30,7 @@ void TInvalidShaderTraverser::visitSymbol(TIntermSymbol* node)
 {
 	if (!node->getConstArray().empty())
 	{
-		is_invalid_shader = false;
+		is_valid_shader = false;
 	}
 }
 
