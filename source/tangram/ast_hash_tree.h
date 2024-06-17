@@ -4,7 +4,7 @@
 
 // ast symbol hash string layout example
 // Type Hash + Path Hash
-// Path Hash: BM0M1EM0M1 : begine-> mid 0-> mid 1-> end-> mid 0-> mid 1
+// Path Hash: BM0M1EM0M1 : begine-> mid 0-> mid 1-> end-> mid 0-> mid 1 -> input symbol list index + output symbol list index view(view it as function)
 
 // uniform buffer struct hash: layout + type + name(layout(std140) uniform pb0View)
 // uniform buffer struct member hash: struct hash value + offset
@@ -13,10 +13,9 @@
 
 struct SSymbolHash
 {
-	inline uint32_t getMemSize() { return sizeof(XXH64_hash_t) * (1 + linked_hashed_nodes.size()); };
+	inline uint32_t getMemSize() { return sizeof(XXH64_hash_t) * (1); };
 
 	XXH64_hash_t symbol_hash_value;
-	std::vector <XXH64_hash_t> linked_hashed_nodes;
 };
 
 // ast node hash string layout
@@ -28,12 +27,12 @@ struct SSymbolHash
 
 struct SNodeHash
 {
-	inline uint32_t getMemSize() { return sizeof(XXH64_hash_t) * (1 + child_hashed_nodes.size() + parent_hashed_nodes.size() + input_symbols.size() + output_symbols.size() ); };
+	inline uint32_t getMemSize() { return sizeof(XXH64_hash_t) * (1 + linked_input_hashed_nodes.size() + linked_output_hashed_nodes.size() + input_symbols.size() + output_symbols.size() ); };
 
 	XXH64_hash_t hash_value;
 
-	std::vector<XXH64_hash_t> child_hashed_nodes;
-	std::vector<XXH64_hash_t> parent_hashed_nodes;
+	std::vector<XXH64_hash_t> linked_input_hashed_nodes;
+	std::vector<XXH64_hash_t> linked_output_hashed_nodes;
 
 	std::vector<SSymbolHash> input_symbols;
 	std::vector<SSymbolHash> output_symbols;
@@ -69,19 +68,23 @@ public:
 
 class TASTHashTraverser : public TIntermTraverser {
 public:
-	TASTHashTraverser() :
-		TIntermTraverser(true, true, true, false) //
+	TASTHashTraverser(TIntermTraverser* input_traverser) :
+		custom_traverser(input_traverser),
+		TIntermTraverser(true, false, false, false) //
 	{ }
 
-	//virtual bool visitBinary(TVisit, TIntermBinary* node);
-	//virtual bool visitUnary(TVisit, TIntermUnary* node);
-	//virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-	//virtual bool visitSelection(TVisit, TIntermSelection* node);
-	//virtual void visitConstantUnion(TIntermConstantUnion* node);
-	//virtual void visitSymbol(TIntermSymbol* node);
-	//virtual bool visitLoop(TVisit, TIntermLoop* node);
-	//virtual bool visitBranch(TVisit, TIntermBranch* node);
-	//virtual bool visitSwitch(TVisit, TIntermSwitch* node);
+	virtual bool visitBinary(TVisit, TIntermBinary* node);
+	virtual bool visitUnary(TVisit, TIntermUnary* node);
+	virtual bool visitAggregate(TVisit, TIntermAggregate* node);
+	virtual bool visitSelection(TVisit, TIntermSelection* node);
+	virtual void visitConstantUnion(TIntermConstantUnion* node);
+	virtual void visitSymbol(TIntermSymbol* node);
+	virtual bool visitLoop(TVisit, TIntermLoop* node);
+	virtual bool visitBranch(TVisit, TIntermBranch* node);
+	virtual bool visitSwitch(TVisit, TIntermSwitch* node);
+
+public:
+	TIntermTraverser* custom_traverser;
 };
 
 
