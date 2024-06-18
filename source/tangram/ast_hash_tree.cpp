@@ -1,151 +1,8 @@
 #include "ast_hash_tree.h"
 
 static int global_seed = 42;
-static CGlobalHashNodeMannager* hash_node_manager = nullptr;
-
-CGlobalHashNodeMannager::CGlobalHashNodeMannager()
-{
-	mem_size = HASH_NODE_MEM_BLOCK_SIZE;
-	global_hashed_node_mem = malloc(mem_size);
-	mem_offset = 0;
-}
-
-void* CGlobalHashNodeMannager::allocHashedNodeMem(int size)
-{
-	if ((mem_offset + size) < mem_size)
-	{
-		void* ret_mem = ((char*)(global_hashed_node_mem)) + mem_offset;
-		mem_offset += size;
-		return ret_mem;
-	}
-	else
-	{
-		uint32_t new_size = mem_size + HASH_NODE_MEM_BLOCK_SIZE;
-		void* new_mem = malloc(new_size);
-		if (new_mem != nullptr)
-		{
-			memcpy(new_mem, global_hashed_node_mem, new_size);
-			free(global_hashed_node_mem);
-			global_hashed_node_mem = new_mem;
-		}
-		else
-		{
-			assert_t(false);
-		}
-
-	}
-}
-
-void CGlobalHashNodeMannager::addSymbolNode(XXH64_hash_t hash, const SSymbolHash& symbol_hash)
-{
-	auto iter = global_hashed_symbols.find(hash);
-	if (iter == global_hashed_symbols.end())
-	{
-		void* dest_data = allocHashedNodeMem(symbol_hash.getMemSize());
-		memcpy(dest_data, &symbol_hash, symbol_hash.getMemSize());
-		global_hashed_symbols[hash] = (SSymbolHash*)dest_data;
-	}
-
-	
-}
-
-void CGlobalHashNodeMannager::getInputSymbolHashValues(XXH64_hash_t hash_value, XXH64_hash_t* out_hash_values, int& num)
-{
-	auto hashed_symbol_iter = global_hashed_symbols.find(hash_value);
-	if (hashed_symbol_iter != global_hashed_symbols.end())
-	{
-		out_hash_values = &(hashed_symbol_iter->second->symbol_hash_value);
-		num = 1;
-	}
-
-	auto hashed_node_iter = global_hashed_nodes.find(hash_value);
-	if (hashed_node_iter != global_hashed_symbols.end())
-	{
-
-	}
-}
 
 
-bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLengths)
-{
-	int shader_size = *shaderLengths;
-	int sharp_pos = 0;
-	for (int idx = 0; idx < shader_size; idx++)
-	{
-		if (((const char*)shaderStrings)[idx] == '#')
-		{
-			if (((const char*)shaderStrings)[idx + 1] == 'v')
-			{
-				sharp_pos = idx;
-				break;
-			}
-		}
-	}
-
-	int main_size = shader_size - sharp_pos;
-	if (main_size <= 0)
-	{
-		return false;
-	}
-
-	const int defaultVersion = 100;
-	const EProfile defaultProfile = ENoProfile;
-	const bool forceVersionProfile = false;
-	const bool isForwardCompatible = false;
-
-	EShMessages messages = EShMsgCascadingErrors;
-	messages = static_cast<EShMessages>(messages | EShMsgAST);
-	messages = static_cast<EShMessages>(messages | EShMsgHlslLegalization);
-
-	std::string src_code((const char*)shaderStrings + sharp_pos, main_size);
-	{
-		glslang::TShader shader(EShLangFragment);
-		{
-			const char* shader_strings = src_code.data();
-			const int shader_lengths = static_cast<int>(src_code.size());
-			shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
-			shader.setEntryPoint("main");
-			shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
-		}
-
-		TIntermediate* intermediate = shader.getIntermediate();
-		TInvalidShaderTraverser invalid_traverser;
-		intermediate->getTreeRoot()->traverse(&invalid_traverser);
-		if (!invalid_traverser.getIsValidShader()) { return false; }
-
-		TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
-		if (root_aggregate != nullptr)
-		{
-			// tranverse linker object at first
-			TIntermSequence& sequence = root_aggregate->getSequence();
-			TIntermSequence sequnce_reverse;
-			for (TIntermSequence::reverse_iterator sit = sequence.rbegin(); sit != sequence.rend(); sit++)
-			{
-				TString skip_str("compiler_internal_Adjust");
-				if ((*sit)->getAsAggregate())
-				{
-					TString func_name = (*sit)->getAsAggregate()->getName();
-					if ((func_name.size() > skip_str.size()) && (func_name.substr(0, skip_str.size()) == skip_str))
-					{
-						return false;
-					}
-				}
-				sequnce_reverse.push_back(*sit);
-			}
-			sequence = sequnce_reverse;
-		}
-		else
-		{
-			assert_t(false);
-		}
-
-		CASTHashTreeBuilder hash_tree_builder;
-		TASTHashTraverser hash_tree_tranverser(&hash_tree_builder);
-		intermediate->getTreeRoot()->traverse(&hash_tree_tranverser);
-
-	}
-	return false;
-}
 
 bool TASTHashTraverser::visitBinary(TVisit, TIntermBinary* node)
 {
@@ -589,76 +446,73 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 	if (visit == EvPreVisit)
 	{
-		global_hash_values.push_back(0);
-		hash_value_path.push_back(global_hash_values.size() - 1);
+		//global_hash_values.push_back(0);
+		//hash_value_path.push_back(global_hash_values.size() - 1);
 	}
 	
 	switch (node_operator)
 	{
 	case EOpIndexDirectStruct:
 	{
-		if (visit == EvPreVisit)
-		{
-			node->setLeft(nullptr);
-			node->setRight(nullptr);
-
-			global_hash_values.push_back(0);
-			hash_value_path.push_back(global_hash_values.size() - 1);
-			global_hash_values.push_back(0);
-			hash_value_path.push_back(global_hash_values.size() - 1);
-		}
-		else if (visit == EvPostVisit)
-		{
-			const TTypeList* members = node->getLeft()->getType().getStruct();
-			int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
-			const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
-
-			long long left_node_id = node->getLeft()->getAsSymbolNode()->getId();
-
-			XXH64_hash_t left_node_hash = node_id_to_hash[left_node_id];
-			hash_string.append(std::to_string(left_node_hash).c_str());
-			hash_string.append(index_direct_struct_str);
-
-			SNodeHash node_hash;
-			node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			node_hash.input_symbols.push_back(left_node_hash);
-
-			hash_value_path.pop_back();//left
-			hash_value_path.pop_back();//right
-
-			int hash_value_index = hash_value_path.back();
-			hash_value_path[hash_value_index] = node_hash.hash_value;
-		}
-		break;
+		//if (visit == EvPreVisit)
+		//{
+		//	node->setLeft(nullptr);
+		//	node->setRight(nullptr);
+		//
+		//}
+		//else if (visit == EvPostVisit)
+		//{
+		//	const TTypeList* members = node->getLeft()->getType().getStruct();
+		//	int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
+		//	const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
+		//
+		//	long long left_node_id = node->getLeft()->getAsSymbolNode()->getId();
+		//
+		//	XXH64_hash_t left_node_hash = node_id_to_hash[left_node_id];
+		//	hash_string.append(std::to_string(left_node_hash).c_str());
+		//	hash_string.append(index_direct_struct_str);
+		//
+		//	CHashNode node_hash;
+		//	node_hash.length = 1.0;
+		//	node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		//	node_hash.combined_hash_value = 0;
+		//
+		//	hash_value_path.pop_back();//left
+		//	hash_value_path.pop_back();//right
+		//
+		//	int hash_value_index = hash_value_path.back();
+		//	hash_value_path[hash_value_index] = node_hash.hash_value;
+		//}
+		//break;
 	}
 	default:
 	{
-		if (visit == EvPostVisit)
-		{
-			int hash_idx_right = hash_value_path.back();
-			hash_value_path.pop_back();
-
-			int hash_idx_left= hash_value_path.back();
-			hash_value_path.pop_back();//right
-
-			long long left_hash_value = global_hash_values[hash_idx_left];
-			long long right_hash_value = global_hash_values[hash_idx_right];
-
-			hash_string.append(std::to_string(left_hash_value).c_str());
-			hash_string.append(std::to_string(right_hash_value).c_str());
-
-			SNodeHash node_hash;
-			node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			node_hash.input_symbols.push_back(left_node_hash);
-
-
-
-			auto left_hashed_symbol_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
-			auto left_hashed_node_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
-
-			int hash_value_index = hash_value_path.back();
-			hash_value_path[hash_value_index] = node_hash.hash_value;
-		}
+		//if (visit == EvPostVisit)
+		//{
+		//	int hash_idx_right = hash_value_path.back();
+		//	hash_value_path.pop_back();
+		//
+		//	int hash_idx_left= hash_value_path.back();
+		//	hash_value_path.pop_back();//right
+		//
+		//	long long left_hash_value = global_hash_values[hash_idx_left];
+		//	long long right_hash_value = global_hash_values[hash_idx_right];
+		//
+		//	hash_string.append(std::to_string(left_hash_value).c_str());
+		//	hash_string.append(std::to_string(right_hash_value).c_str());
+		//
+		//	SNodeHash node_hash;
+		//	node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		//	node_hash.input_symbols.push_back(left_node_hash);
+		//
+		//
+		//
+		//	auto left_hashed_symbol_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
+		//	auto left_hashed_node_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
+		//
+		//	int hash_value_index = hash_value_path.back();
+		//	hash_value_path[hash_value_index] = node_hash.hash_value;
+		//}
 	}
 	};
 
@@ -688,39 +542,133 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	{
 		TString hash_string;
 
-		TString type_string = getTypeText(node->getType());
+		const TType& type = node->getType();
+		TString type_string = getTypeText(type);
 		hash_string.append(type_string);
 
-		TBasicType basic_type = node->getType().getBasicType();
+		TBasicType basic_type = type.getBasicType();
+
+		// uniform buffer linker object
 		if (basic_type == EbtBlock)
 		{
 			hash_string.append(node->getName());
+			assert_t(type.isStruct() && type.getStruct());
+
+			const TTypeList* structure = type.getStruct();
+			for (size_t i = 0; i < structure->size(); ++i)
+			{
+				TString mem_name = hash_string;
+				TType* struct_mem_type = (*structure)[i].type;
+				mem_name.append(struct_mem_type->getFieldName().c_str());
+				XXH64_hash_t hash_value = XXH64(mem_name.data(), mem_name.size(), global_seed);
+
+				CHashNode linker_node;
+				linker_node.hash_value = hash_value;
+				tree_hash_nodes.push_back(linker_node);
+				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+			}
 		}
 		
-		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-
-		SSymbolHash block_hash;
-		block_hash.symbol_hash_value = hash_value;
-		hash_node_manager->addSymbolNode(block_hash.symbol_hash_value, block_hash);
-		
-		auto iter = node_id_to_hash.find(node->getId());
-		if (iter == node_id_to_hash.end())
+		// other linker object
+		if (type.getQualifier().hasLayout() && (basic_type != EbtBlock))
 		{
-			node_id_to_hash[node->getId()] = hash_value;
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			CHashNode linker_node;
+			linker_node.hash_value = hash_value;
+			tree_hash_nodes.push_back(linker_node);
+			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 		}
 	}
-
-	
 }
 
 void initAstToHashTree()
 {
 	InitializeProcess();
-	hash_node_manager = new CGlobalHashNodeMannager();
 }
 
 void finalizeAstToHashTree()
 {
-	delete hash_node_manager;
 	FinalizeProcess();
+}
+
+bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLengths)
+{
+	int shader_size = *shaderLengths;
+	int sharp_pos = 0;
+	for (int idx = 0; idx < shader_size; idx++)
+	{
+		if (((const char*)shaderStrings)[idx] == '#')
+		{
+			if (((const char*)shaderStrings)[idx + 1] == 'v')
+			{
+				sharp_pos = idx;
+				break;
+			}
+		}
+	}
+
+	int main_size = shader_size - sharp_pos;
+	if (main_size <= 0)
+	{
+		return false;
+	}
+
+	const int defaultVersion = 100;
+	const EProfile defaultProfile = ENoProfile;
+	const bool forceVersionProfile = false;
+	const bool isForwardCompatible = false;
+
+	EShMessages messages = EShMsgCascadingErrors;
+	messages = static_cast<EShMessages>(messages | EShMsgAST);
+	messages = static_cast<EShMessages>(messages | EShMsgHlslLegalization);
+
+	std::string src_code((const char*)shaderStrings + sharp_pos, main_size);
+	{
+		glslang::TShader shader(EShLangFragment);
+		{
+			const char* shader_strings = src_code.data();
+			const int shader_lengths = static_cast<int>(src_code.size());
+			shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
+			shader.setEntryPoint("main");
+			shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
+		}
+
+		TIntermediate* intermediate = shader.getIntermediate();
+		TInvalidShaderTraverser invalid_traverser;
+		intermediate->getTreeRoot()->traverse(&invalid_traverser);
+		if (!invalid_traverser.getIsValidShader()) { return false; }
+
+		TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
+		if (root_aggregate != nullptr)
+		{
+			// tranverse linker object at first
+			TIntermSequence& sequence = root_aggregate->getSequence();
+			TIntermSequence sequnce_reverse;
+			for (TIntermSequence::reverse_iterator sit = sequence.rbegin(); sit != sequence.rend(); sit++)
+			{
+				TString skip_str("compiler_internal_Adjust");
+				if ((*sit)->getAsAggregate())
+				{
+					TString func_name = (*sit)->getAsAggregate()->getName();
+					if ((func_name.size() > skip_str.size()) && (func_name.substr(0, skip_str.size()) == skip_str))
+					{
+						return false;
+					}
+				}
+
+				sequnce_reverse.push_back(*sit);
+			}
+			sequence = sequnce_reverse;
+		}
+		else
+		{
+			assert_t(false);
+		}
+
+		CASTHashTreeBuilder hash_tree_builder;
+		TASTHashTraverser hash_tree_tranverser(&hash_tree_builder);
+		intermediate->getTreeRoot()->traverse(&hash_tree_tranverser);
+
+	}
+	return false;
 }
