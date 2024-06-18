@@ -368,6 +368,18 @@ void TestSingleAstToGL()
 	finish_ast_to_glsl();
 }
 
+void TestSingleASTToHashTree()
+{
+	initAstToHashTree();
+	std::vector<char> dict_buffer;
+	std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
+	LoadBuffer(dict_buffer, shader_path);
+	int size_code = dict_buffer.size();
+
+	ast_to_hash_treel((const char* const*)dict_buffer.data(), &size_code);
+	finalizeAstToHashTree();
+}
+
 void TestGlobalASTToGL()
 {
 	init_ast_to_glsl();
@@ -431,6 +443,7 @@ int main()
 	
 	{
 		TestSingleAstToGL();
+		TestSingleASTToHashTree();
 		return 0;
 	}
 

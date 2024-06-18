@@ -1,5 +1,8 @@
 #include "ast_hash_tree.h"
 
+static int global_seed = 42;
+static CGlobalHashNodeMannager* hash_node_manager = nullptr;
+
 CGlobalHashNodeMannager::CGlobalHashNodeMannager()
 {
 	mem_size = HASH_NODE_MEM_BLOCK_SIZE;
@@ -29,6 +32,35 @@ void* CGlobalHashNodeMannager::allocHashedNodeMem(int size)
 		{
 			assert_t(false);
 		}
+
+	}
+}
+
+void CGlobalHashNodeMannager::addSymbolNode(XXH64_hash_t hash, const SSymbolHash& symbol_hash)
+{
+	auto iter = global_hashed_symbols.find(hash);
+	if (iter == global_hashed_symbols.end())
+	{
+		void* dest_data = allocHashedNodeMem(symbol_hash.getMemSize());
+		memcpy(dest_data, &symbol_hash, symbol_hash.getMemSize());
+		global_hashed_symbols[hash] = (SSymbolHash*)dest_data;
+	}
+
+	
+}
+
+void CGlobalHashNodeMannager::getInputSymbolHashValues(XXH64_hash_t hash_value, XXH64_hash_t* out_hash_values, int& num)
+{
+	auto hashed_symbol_iter = global_hashed_symbols.find(hash_value);
+	if (hashed_symbol_iter != global_hashed_symbols.end())
+	{
+		out_hash_values = &(hashed_symbol_iter->second->symbol_hash_value);
+		num = 1;
+	}
+
+	auto hashed_node_iter = global_hashed_nodes.find(hash_value);
+	if (hashed_node_iter != global_hashed_symbols.end())
+	{
 
 	}
 }
@@ -107,6 +139,10 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 			assert_t(false);
 		}
 
+		CASTHashTreeBuilder hash_tree_builder;
+		TASTHashTraverser hash_tree_tranverser(&hash_tree_builder);
+		intermediate->getTreeRoot()->traverse(&hash_tree_tranverser);
+
 	}
 	return false;
 }
@@ -114,6 +150,8 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 bool TASTHashTraverser::visitBinary(TVisit, TIntermBinary* node)
 {
 	bool visit = true;
+
+	XXH64_hash_t child_hash_values[2];
 
 	if (custom_traverser->preVisit)
 	{
@@ -125,6 +163,8 @@ bool TASTHashTraverser::visitBinary(TVisit, TIntermBinary* node)
 
 		if (custom_traverser->rightToLeft) 
 		{
+			assert_t(false);
+
 			if (node->getRight())
 			{
 				node->getRight()->traverse(custom_traverser);
@@ -175,16 +215,21 @@ bool TASTHashTraverser::visitUnary(TVisit, TIntermUnary* node)
 	bool visit = true;
 
 	if (custom_traverser->preVisit)
-		visit = it->visitUnary(EvPreVisit, this);
+	{
+		visit = custom_traverser->visitUnary(EvPreVisit, node);
+	}
 
-	if (visit) {
-		custom_traverser->incrementDepth(this);
-		operand->traverse(custom_traverser);
+	if (visit) 
+	{
+		custom_traverser->incrementDepth(node);
+		node->getOperand()->traverse(custom_traverser);
 		custom_traverser->decrementDepth();
 	}
 
 	if (visit && custom_traverser->postVisit)
-		custom_traverser->visitUnary(EvPostVisit, this);
+	{
+		custom_traverser->visitUnary(EvPostVisit, node);
+	}
 
 	return true;
 }
@@ -413,4 +458,269 @@ bool TASTHashTraverser::visitSwitch(TVisit, TIntermSwitch* node)
 	}
 
 	return true;
+}
+
+TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
+{
+	TString type_string;
+
+	const auto appendStr = [&](const char* s) { type_string.append(s); };
+	const auto appendUint = [&](unsigned int u) { type_string.append(std::to_string(u).c_str()); };
+	const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
+
+	TBasicType basic_type = type.getBasicType();
+	bool is_vec = type.isVector();
+	bool is_blk = (basic_type == EbtBlock);
+	bool is_mat = type.isMatrix();
+
+	const TQualifier& qualifier = type.getQualifier();
+	if (getQualifiers)
+	{
+		if (qualifier.hasLayout())
+		{
+			appendStr("layout(");
+			if (qualifier.hasAnyLocation())
+			{
+				appendStr(" location=");
+				appendUint(qualifier.layoutLocation);
+			}
+			if (qualifier.hasPacking())
+			{
+				appendStr(TQualifier::getLayoutPackingString(qualifier.layoutPacking));
+			}
+			appendStr(")");
+		}
+
+		bool should_out_storage_qualifier = true;
+		if (type.getQualifier().storage == EvqTemporary ||
+			type.getQualifier().storage == EvqGlobal)
+		{
+			should_out_storage_qualifier = false;
+		}
+
+		if (should_out_storage_qualifier)
+		{
+			appendStr(type.getStorageQualifierString());
+			appendStr(" ");
+		}
+
+		{
+			appendStr(type.getPrecisionQualifierString());
+			appendStr(" ");
+		}
+	}
+
+	if ((getQualifiers == false) && getPrecision)
+	{
+		{
+			appendStr(type.getPrecisionQualifierString());
+			appendStr(" ");
+		}
+	}
+
+	if (is_vec)
+	{
+		switch (basic_type)
+		{
+		case EbtDouble:
+			appendStr("d");
+			break;
+		case EbtInt:
+			appendStr("i");
+			break;
+		case EbtUint:
+			appendStr("u");
+			break;
+		case EbtBool:
+			appendStr("b");
+			break;
+		case EbtFloat:
+		default:
+			break;
+		}
+	}
+
+	if (is_mat)
+	{
+		appendStr("mat");
+
+		int mat_raw_num = type.getMatrixRows();
+		int mat_col_num = type.getMatrixCols();
+
+		if (mat_raw_num == mat_col_num)
+		{
+			appendInt(mat_raw_num);
+		}
+		else
+		{
+			appendInt(mat_raw_num);
+			appendStr("x");
+			appendInt(mat_col_num);
+		}
+	}
+
+	if (is_vec)
+	{
+		appendStr("vec");
+		appendInt(type.getVectorSize());
+	}
+
+	if (type.isStruct() && type.getStruct())
+	{
+		
+	}
+	return type_string;
+}
+
+bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
+{
+	TOperator node_operator = node->getOp();
+	TString hash_string;
+
+	if (visit == EvPostVisit)
+	{
+		// hash layout:
+		// hash operator
+		// hash left node
+		// hash right node
+		hash_string.reserve(32 + 64 + 64);
+		hash_string.append(std::to_string(uint32_t(node_operator)).c_str());
+	}
+
+	if (visit == EvPreVisit)
+	{
+		global_hash_values.push_back(0);
+		hash_value_path.push_back(global_hash_values.size() - 1);
+	}
+	
+	switch (node_operator)
+	{
+	case EOpIndexDirectStruct:
+	{
+		if (visit == EvPreVisit)
+		{
+			node->setLeft(nullptr);
+			node->setRight(nullptr);
+
+			global_hash_values.push_back(0);
+			hash_value_path.push_back(global_hash_values.size() - 1);
+			global_hash_values.push_back(0);
+			hash_value_path.push_back(global_hash_values.size() - 1);
+		}
+		else if (visit == EvPostVisit)
+		{
+			const TTypeList* members = node->getLeft()->getType().getStruct();
+			int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
+			const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
+
+			long long left_node_id = node->getLeft()->getAsSymbolNode()->getId();
+
+			XXH64_hash_t left_node_hash = node_id_to_hash[left_node_id];
+			hash_string.append(std::to_string(left_node_hash).c_str());
+			hash_string.append(index_direct_struct_str);
+
+			SNodeHash node_hash;
+			node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			node_hash.input_symbols.push_back(left_node_hash);
+
+			hash_value_path.pop_back();//left
+			hash_value_path.pop_back();//right
+
+			int hash_value_index = hash_value_path.back();
+			hash_value_path[hash_value_index] = node_hash.hash_value;
+		}
+		break;
+	}
+	default:
+	{
+		if (visit == EvPostVisit)
+		{
+			int hash_idx_right = hash_value_path.back();
+			hash_value_path.pop_back();
+
+			int hash_idx_left= hash_value_path.back();
+			hash_value_path.pop_back();//right
+
+			long long left_hash_value = global_hash_values[hash_idx_left];
+			long long right_hash_value = global_hash_values[hash_idx_right];
+
+			hash_string.append(std::to_string(left_hash_value).c_str());
+			hash_string.append(std::to_string(right_hash_value).c_str());
+
+			SNodeHash node_hash;
+			node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			node_hash.input_symbols.push_back(left_node_hash);
+
+
+
+			auto left_hashed_symbol_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
+			auto left_hashed_node_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
+
+			int hash_value_index = hash_value_path.back();
+			hash_value_path[hash_value_index] = node_hash.hash_value;
+		}
+	}
+	};
+
+	
+
+	return false;
+}
+
+void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
+{
+	bool is_declared = false;
+
+	{
+		long long symbol_id = node->getId();
+		auto iter = declared_symbols_id.find(symbol_id);
+		if (iter == declared_symbols_id.end())
+		{
+			declared_symbols_id.insert(symbol_id);
+		}
+		else
+		{
+			is_declared = true;
+		}
+	}
+
+	if (is_declared == false)
+	{
+		TString hash_string;
+
+		TString type_string = getTypeText(node->getType());
+		hash_string.append(type_string);
+
+		TBasicType basic_type = node->getType().getBasicType();
+		if (basic_type == EbtBlock)
+		{
+			hash_string.append(node->getName());
+		}
+		
+		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+
+		SSymbolHash block_hash;
+		block_hash.symbol_hash_value = hash_value;
+		hash_node_manager->addSymbolNode(block_hash.symbol_hash_value, block_hash);
+		
+		auto iter = node_id_to_hash.find(node->getId());
+		if (iter == node_id_to_hash.end())
+		{
+			node_id_to_hash[node->getId()] = hash_value;
+		}
+	}
+
+	
+}
+
+void initAstToHashTree()
+{
+	InitializeProcess();
+	hash_node_manager = new CGlobalHashNodeMannager();
+}
+
+void finalizeAstToHashTree()
+{
+	delete hash_node_manager;
+	FinalizeProcess();
 }
