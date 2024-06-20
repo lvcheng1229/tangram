@@ -436,89 +436,137 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 	if (visit == EvPostVisit)
 	{
-		// hash layout:
-		// hash operator
-		// hash left node
-		// hash right node
-		hash_string.reserve(32 + 64 + 64);
+		hash_string.reserve(2 + 3 + 5 + 5);
+		hash_string.append(std::string("2_")); 
 		hash_string.append(std::to_string(uint32_t(node_operator)).c_str());
+		hash_string.append(std::string("_"));
 	}
 
 	if (visit == EvPreVisit)
 	{
-		//global_hash_values.push_back(0);
-		//hash_value_path.push_back(global_hash_values.size() - 1);
+		
 	}
 	
 	switch (node_operator)
 	{
+	case EOpAssign:
+	{
+		if (visit == EvPreVisit)
+		{
+			TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+
+			if (symbol_node == nullptr)
+			{
+				TIntermBinary* binary_node = node->getLeft()->getAsBinaryNode();
+				if (binary_node)
+				{
+					symbol_node = binary_node->getLeft()->getAsSymbolNode();
+				}
+			}
+
+			if (symbol_node != nullptr)
+			{
+				long long symbol_id = symbol_node->getId();
+				auto iter = declared_symbols_id.find(symbol_id);
+				if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
+			}
+
+			//todo: left symbol may be a expression, e.g. a.x = ;
+			{
+				TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+				const TString& symbol_name = symbol_node->getName();
+				if ((symbol_name[0] == 'g') && (symbol_name[1] == 'l') && (symbol_name[2] == '_'))
+				{
+					assert_t(false);
+				}
+
+				TString return_symbol_string;
+				return_symbol_string = getTypeText(node->getType());
+				return_symbol_string.append(TString("_"));
+				return_symbol_string.append(symbol_name);
+				XXH64_hash_t return_symbol_hash_value = XXH64(return_symbol_string.data(), return_symbol_string.size(), global_seed);
+				//builder_context.symbol_last_hashnode_map[return_symbol_hash_value] = func_node_combined_hash;
+			}
+
+		}
+		else if (visit == EvPostVisit)
+		{
+			XXH64_hash_t func_node_topology_hash;
+			{
+
+			}
+
+			XXH64_hash_t func_node_combined_hash; //combined with input symbol hash and output symbol hash
+
+
+		}
+		
+		break;
+	}
 	case EOpIndexDirectStruct:
 	{
-		//if (visit == EvPreVisit)
-		//{
-		//	node->setLeft(nullptr);
-		//	node->setRight(nullptr);
-		//
-		//}
-		//else if (visit == EvPostVisit)
-		//{
-		//	const TTypeList* members = node->getLeft()->getType().getStruct();
-		//	int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
-		//	const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
-		//
-		//	long long left_node_id = node->getLeft()->getAsSymbolNode()->getId();
-		//
-		//	XXH64_hash_t left_node_hash = node_id_to_hash[left_node_id];
-		//	hash_string.append(std::to_string(left_node_hash).c_str());
-		//	hash_string.append(index_direct_struct_str);
-		//
-		//	CHashNode node_hash;
-		//	node_hash.length = 1.0;
-		//	node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-		//	node_hash.combined_hash_value = 0;
-		//
-		//	hash_value_path.pop_back();//left
-		//	hash_value_path.pop_back();//right
-		//
-		//	int hash_value_index = hash_value_path.back();
-		//	hash_value_path[hash_value_index] = node_hash.hash_value;
-		//}
-		//break;
+		if (visit == EvPreVisit)
+		{
+			const TTypeList* members = node->getLeft()->getType().getStruct();
+			int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
+			const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
+
+			TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
+			const TType& type = node->getType();
+			TString block_hash_string = getTypeText(type);
+
+			TString struct_string = block_hash_string;
+			struct_string.append(symbol_node->getName());
+
+			TString member_string = block_hash_string;
+			member_string.append(index_direct_struct_str);
+
+			XXH64_hash_t struct_hash_value = XXH64(struct_string.data(), struct_string.size(), global_seed);
+			XXH64_hash_t member_hash_value = XXH64(member_string.data(), member_string.size(), global_seed);
+
+			auto struct_symbol_iter = hash_value_to_idx.find(struct_hash_value);
+			auto member_symbol_iter = hash_value_to_idx.find(member_hash_value);
+
+			assert_t(struct_symbol_iter != hash_value_to_idx.end());
+			assert_t(member_symbol_iter != hash_value_to_idx.end());
+
+			builder_context.inout_hash_nodes.push_back(struct_symbol_iter->second);
+			builder_context.inout_hash_nodes.push_back(member_symbol_iter->second);
+
+			hash_string.append(std::to_string(XXH64_hash_t(struct_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+			hash_string.append(std::to_string(XXH64_hash_t(member_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+
+			XXH64_hash_t index_direct_struct_hash = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			hash_value_stack.push_back(index_direct_struct_hash);
+
+			node->setLeft(nullptr);
+			node->setRight(nullptr);
+		}
+		break;
 	}
 	default:
 	{
-		//if (visit == EvPostVisit)
-		//{
-		//	int hash_idx_right = hash_value_path.back();
-		//	hash_value_path.pop_back();
-		//
-		//	int hash_idx_left= hash_value_path.back();
-		//	hash_value_path.pop_back();//right
-		//
-		//	long long left_hash_value = global_hash_values[hash_idx_left];
-		//	long long right_hash_value = global_hash_values[hash_idx_right];
-		//
-		//	hash_string.append(std::to_string(left_hash_value).c_str());
-		//	hash_string.append(std::to_string(right_hash_value).c_str());
-		//
-		//	SNodeHash node_hash;
-		//	node_hash.hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-		//	node_hash.input_symbols.push_back(left_node_hash);
-		//
-		//
-		//
-		//	auto left_hashed_symbol_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
-		//	auto left_hashed_node_iter = hash_node_manager->global_hashed_nodes[left_hash_value];
-		//
-		//	int hash_value_index = hash_value_path.back();
-		//	hash_value_path[hash_value_index] = node_hash.hash_value;
-		//}
+		XXH64_hash_t hash_value_right = hash_value_stack.back();
+		hash_value_stack.pop_back();
+
+		XXH64_hash_t hash_value_left = hash_value_stack.back();
+		hash_value_stack.pop_back();
+
+		hash_string.append(std::to_string(XXH64_hash_t(hash_value_left)).c_str());
+		hash_string.append(std::string("_"));
+		hash_string.append(std::to_string(XXH64_hash_t(hash_value_right)).c_str());
+		hash_string.append(std::string("_"));
+		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+
+		hash_value_stack.push_back(hash_value);
 	}
 	};
 
 	
 
-	return false;
+	return true;
 }
 
 void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
@@ -548,11 +596,21 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 
 		TBasicType basic_type = type.getBasicType();
 
-		// uniform buffer linker object
-		if (basic_type == EbtBlock)
+		if (basic_type == EbtBlock)// uniform buffer linker object
 		{
 			hash_string.append(node->getName());
 			assert_t(type.isStruct() && type.getStruct());
+
+			{
+				XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+				CHashNode linker_node;
+				linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+				linker_node.debug_string = hash_string;
+#endif
+				tree_hash_nodes.push_back(linker_node);
+				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+			}
 
 			const TTypeList* structure = type.getStruct();
 			for (size_t i = 0; i < structure->size(); ++i)
@@ -564,20 +622,63 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 
 				CHashNode linker_node;
 				linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+				linker_node.debug_string = mem_name;
+#endif
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
 		}
-		
-		// other linker object
-		if (type.getQualifier().hasLayout() && (basic_type != EbtBlock))
+		else if (type.getQualifier().hasLayout() && (basic_type != EbtBlock))//other linker object
 		{
 			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 			CHashNode linker_node;
 			linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+			linker_node.debug_string = hash_string;
+#endif
 			tree_hash_nodes.push_back(linker_node);
 			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 		}
+		else
+		{
+			//do nothing
+			//visitBinary
+		}
+	}
+	else
+	{
+		TString hash_string;
+
+		const TType& type = node->getType();
+		TString type_string = getTypeText(type);
+		hash_string.append(type_string);
+
+		XXH64_hash_t type_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		hash_value_stack.push_back(type_hash_value);
+
+		if (type.getQualifier().hasLayout())
+		{
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			builder_context.input_hash_nodes.push_back(hash_value_to_idx[hash_value]);
+		}
+		else
+		{
+			hash_string.append(TString("_"));
+			hash_string.append(node->getName());
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			auto iter = builder_context.symbol_last_hashnode_map.find(hash_value);
+			builder_context.input_hash_nodes.push_back(iter->second);
+		}
+	}
+
+	if (!node->getConstArray().empty() && (is_declared == false))
+	{
+		assert_t(false);
+	}
+	else if (node->getConstSubtree())
+	{
+		assert_t(false);
 	}
 }
 

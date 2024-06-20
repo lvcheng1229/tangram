@@ -18,6 +18,10 @@ struct CHashNode
 	float length;
 	float count;
 
+#if TANGRAM_DEBUG
+	TString debug_string;
+#endif
+
 	XXH64_hash_t hash_value;
 	XXH64_hash_t combined_hash_value; // combined with in out hash value
 
@@ -36,6 +40,11 @@ public:
 //  for each ast
 //		generate tree hash nodes
 //		combine it to graph
+
+//symbol hash vec3_symbolname
+
+// global hash graph node is linked by topology hash
+// hash tree node is linked by node hash
 
 class CASTHashTreeBuilder : public TIntermTraverser
 {
@@ -68,10 +77,20 @@ private:
 	std::vector<CHashNode> tree_hash_nodes;
 	std::unordered_map<XXH64_hash_t, uint32_t> hash_value_to_idx;
 
+	struct CBuilderContext
+	{
+		std::vector<XXH64_hash_t>input_hash_nodes;
+		std::vector<XXH64_hash_t>output_hash_nodes;
+		std::vector<XXH64_hash_t>inout_hash_nodes;
+
+		std::unordered_map<XXH64_hash_t, XXH64_hash_t>symbol_last_hashnode_map;
+	};
+
+	CBuilderContext builder_context;
+
+	std::vector<XXH64_hash_t> hash_value_stack;
 
 	std::set<long long> declared_symbols_id;
-	TVector<XXH64_hash_t> path;
-	std::vector<uint32_t> hash_value_path;
 
 };
 
