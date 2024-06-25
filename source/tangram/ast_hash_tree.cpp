@@ -555,7 +555,7 @@ TString CASTHashTreeBuilder::generateConstantUnionStr(const TIntermConstantUnion
 			}
 			array_idx++;
 		}
-		return;
+		return constUnionStr;
 	}
 
 	if (is_construct_vector)
