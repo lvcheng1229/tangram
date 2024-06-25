@@ -2,320 +2,19 @@
 
 static int global_seed = 42;
 
-
-
-bool TASTHashTraverser::visitBinary(TVisit, TIntermBinary* node)
+void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 {
-	bool visit = true;
-
-	XXH64_hash_t child_hash_values[2];
-
-	if (custom_traverser->preVisit)
+	const TString& node_string = node->getName();
+	XXH32_hash_t hash_value = XXH32(node_string.data(), node_string.size(), global_seed);
+	auto iter = symbol_index.find(hash_value);
+	if (iter == symbol_index.end())
 	{
-		visit = custom_traverser->visitBinary(EvPreVisit, node);
+		symbol_index[hash_value] = symbol_idx;
+		symbol_idx++;
 	}
-
-	if (visit) {
-		custom_traverser->incrementDepth(node);
-
-		if (custom_traverser->rightToLeft) 
-		{
-			assert_t(false);
-
-			if (node->getRight())
-			{
-				node->getRight()->traverse(custom_traverser);
-			}
-
-			if (custom_traverser->inVisit)
-			{
-				visit = custom_traverser->visitBinary(EvInVisit, node);
-			}
-
-			if (visit && node->getLeft())
-			{
-				node->getLeft()->traverse(custom_traverser);
-			}
-		}
-		else 
-		{
-			if (node->getLeft())
-			{
-				node->getLeft()->traverse(custom_traverser);
-			}
-				
-			if (custom_traverser->inVisit)
-			{
-				visit = custom_traverser->visitBinary(EvInVisit, node);
-			}
-
-			if (visit && node->getRight())
-			{
-				node->getRight()->traverse(custom_traverser);
-			}
-		}
-
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitBinary(EvPostVisit, node);
-	}
-		
-
-	return true;
 }
 
-bool TASTHashTraverser::visitUnary(TVisit, TIntermUnary* node)
-{
-	bool visit = true;
 
-	if (custom_traverser->preVisit)
-	{
-		visit = custom_traverser->visitUnary(EvPreVisit, node);
-	}
-
-	if (visit) 
-	{
-		custom_traverser->incrementDepth(node);
-		node->getOperand()->traverse(custom_traverser);
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitUnary(EvPostVisit, node);
-	}
-
-	return true;
-}
-
-bool TASTHashTraverser::visitAggregate(TVisit, TIntermAggregate* node)
-{
-	bool visit = true;
-
-	if (custom_traverser->preVisit)
-	{
-		visit = custom_traverser->visitAggregate(EvPreVisit, node);
-	}
-
-	if (visit)
-	{
-		custom_traverser->incrementDepth(node);
-		if (custom_traverser->rightToLeft)
-		{
-			for (TIntermSequence::reverse_iterator sit = node->getSequence().rbegin(); sit != node->getSequence().rend(); sit++)
-			{
-				(*sit)->traverse(custom_traverser);
-				if (visit && inVisit) 
-				{
-					if (*sit != node->getSequence().front())
-					{
-						visit = custom_traverser->visitAggregate(EvInVisit, node);
-					}
-				}
-			}
-		}
-		else
-		{
-			for (TIntermSequence::iterator sit = node->getSequence().begin(); sit != node->getSequence().end(); sit++) 
-			{
-				(*sit)->traverse(custom_traverser);
-
-				if (visit && custom_traverser->inVisit) 
-				{
-					if (*sit != node->getSequence().back())
-					{
-						visit = custom_traverser->visitAggregate(EvInVisit, node);
-					}
-				}
-			}
-		}
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitAggregate(EvPostVisit, node);
-	}
-		
-	return true;
-}
-
-bool TASTHashTraverser::visitSelection(TVisit, TIntermSelection* node)
-{
-	bool visit = true;
-
-	if (custom_traverser->preVisit)
-	{
-		visit = custom_traverser->visitSelection(EvPreVisit, node);
-	}
-
-	if (visit) 
-	{
-		custom_traverser->incrementDepth(node);
-		if (custom_traverser->rightToLeft) 
-		{
-			if (node->getFalseBlock())
-			{
-				node->getFalseBlock()->traverse(custom_traverser);
-			}
-				
-			if (node->getTrueBlock())
-			{
-				node->getTrueBlock()->traverse(custom_traverser);
-			}
-				
-			node->getCondition()->traverse(custom_traverser);
-		}
-		else 
-		{
-			node->getCondition()->traverse(custom_traverser);
-
-			if (node->getTrueBlock())
-			{
-				node->getTrueBlock()->traverse(custom_traverser);
-			}
-				
-			if (node->getFalseBlock())
-			{
-				node->getFalseBlock()->traverse(custom_traverser);
-			}
-		}
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitSelection(EvPostVisit, node);
-	}
-
-	return true;
-}
-
-void TASTHashTraverser::visitConstantUnion(TIntermConstantUnion* node)
-{
-	custom_traverser->visitConstantUnion(node);
-}
-
-void TASTHashTraverser::visitSymbol(TIntermSymbol* node)
-{
-	custom_traverser->visitSymbol(node);
-}
-
-bool TASTHashTraverser::visitLoop(TVisit, TIntermLoop* node)
-{
-	bool visit = true;
-
-	if (custom_traverser->preVisit)
-	{
-		visit = custom_traverser->visitLoop(EvPreVisit, node);
-	}
-		
-
-	if (visit) 
-	{
-		custom_traverser->incrementDepth(node);
-
-		if (custom_traverser->rightToLeft) 
-		{
-			if (node->getTerminal())
-			{
-				node->getTerminal()->traverse(custom_traverser);
-			}
-				
-			if (node->getBody())
-			{
-				node->getBody()->traverse(custom_traverser);
-			}
-
-			if (node->getTest())
-			{
-				node->getTest()->traverse(custom_traverser);
-			}
-		}
-		else 
-		{
-			if (node->getTest())
-			{
-				node->getTest()->traverse(custom_traverser);
-			}
-
-			if (node->getBody())
-			{
-				node->getBody()->traverse(custom_traverser);
-			}
-
-			if (node->getTerminal())
-			{
-				node->getTerminal()->traverse(custom_traverser);
-			}
-		}
-
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitLoop(EvPostVisit, node);
-	}
-
-	return true;
-}
-
-bool TASTHashTraverser::visitBranch(TVisit, TIntermBranch* node)
-{
-	bool visit = true;
-
-	if (custom_traverser->preVisit)
-	{
-		visit = custom_traverser->visitBranch(EvPreVisit, node);
-	}
-
-	if (visit && node->getExpression()) 
-	{
-		custom_traverser->incrementDepth(node);
-		node->getExpression()->traverse(custom_traverser);
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitBranch(EvPostVisit, node);
-	}
-
-	return true;
-}
-
-bool TASTHashTraverser::visitSwitch(TVisit, TIntermSwitch* node)
-{
-	bool visit = true;
-
-	if (custom_traverser->preVisit)
-		visit = custom_traverser->visitSwitch(EvPreVisit, node);
-
-	if (visit) {
-		custom_traverser->incrementDepth(node);
-		if (custom_traverser->rightToLeft) 
-		{
-			node->getBody()->traverse(custom_traverser);
-			node->getCondition()->traverse(custom_traverser);
-		}
-		else {
-			node->getCondition()->traverse(custom_traverser);
-			node->getBody()->traverse(custom_traverser);
-		}
-		custom_traverser->decrementDepth();
-	}
-
-	if (visit && custom_traverser->postVisit)
-	{
-		custom_traverser->visitSwitch(EvPostVisit, node);
-	}
-
-	return true;
-}
 
 TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
 {
@@ -429,6 +128,8 @@ TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, 
 	return type_string;
 }
 
+// 2_operator_lefthash_righthash
+
 bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 {
 	TOperator node_operator = node->getOp();
@@ -442,22 +143,22 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 		hash_string.append(std::string("_"));
 	}
 
-	if (visit == EvPreVisit)
-	{
-		
-	}
-	
 	switch (node_operator)
 	{
 	case EOpAssign:
 	{
 		if (visit == EvPreVisit)
 		{
+			builder_context.scopeReset();
+			scope_symbol_traverser.reset();
+			node->getLeft()->traverse(&scope_symbol_traverser);
+			node->getRight()->traverse(&scope_symbol_traverser);
+
 			TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
 
 			if (symbol_node == nullptr)
 			{
-				TIntermBinary* binary_node = node->getLeft()->getAsBinaryNode();
+				TIntermBinary* binary_node = node->getLeft()->getAsBinaryNode(); //e.g. swizzle a.x
 				if (binary_node)
 				{
 					symbol_node = binary_node->getLeft()->getAsSymbolNode();
@@ -471,7 +172,6 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
 			}
 
-			//todo: left symbol may be a expression, e.g. a.x = ;
 			{
 				TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
 				const TString& symbol_name = symbol_node->getName();
@@ -479,29 +179,69 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				{
 					assert_t(false);
 				}
-
-				TString return_symbol_string;
-				return_symbol_string = getTypeText(node->getType());
-				return_symbol_string.append(TString("_"));
-				return_symbol_string.append(symbol_name);
-				XXH64_hash_t return_symbol_hash_value = XXH64(return_symbol_string.data(), return_symbol_string.size(), global_seed);
-				//builder_context.symbol_last_hashnode_map[return_symbol_hash_value] = func_node_combined_hash;
 			}
 
-		}
-		else if (visit == EvPostVisit)
-		{
-			XXH64_hash_t func_node_topology_hash;
+			// output symbols
+			if (node->getLeft())
 			{
-
+				builder_context.op_assign_visit_output_symbols = true;
+				node->getLeft()->traverse(this);
+				builder_context.op_assign_visit_output_symbols = false;
 			}
 
-			XXH64_hash_t func_node_combined_hash; //combined with input symbol hash and output symbol hash
 
+			// input symbols
+			if (node->getRight())
+			{
+				builder_context.op_assign_visit_input_symbols = true;
+				node->getRight()->traverse(this);
+				builder_context.op_assign_visit_input_symbols = false;
+			}
 
+			XXH64_hash_t right_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+
+			XXH64_hash_t left_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			
+			hash_string.append(std::to_string(left_hash_value).c_str());
+			hash_string.append(std::string("_"));
+			hash_string.append(std::to_string(right_hash_value).c_str());
+			hash_string.append(std::string("_"));
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+
+			CHashNode func_hash_node;
+			func_hash_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+			func_hash_node.debug_string = hash_string;
+#endif
+
+			std::vector<XXH64_hash_t>& output_hash_values = builder_context.getOutputHashValues();
+			std::vector<XXH64_hash_t>& input_hash_values = builder_context.getInputHashValues();
+
+			for (auto& out_symbol_hash : output_hash_values)
+			{
+				builder_context.symbol_last_hashnode_map[out_symbol_hash] = hash_value;
+			}
+
+			for (auto& in_symbol_hash : input_hash_values)
+			{
+				func_hash_node.input_hash_nodes.push_back(hash_value_to_idx[in_symbol_hash]);
+				std::set<uint64_t>& parent_linknode = tree_hash_nodes[hash_value_to_idx[in_symbol_hash]].out_hash_nodes;
+				parent_linknode.insert(tree_hash_nodes.size());
+			}
+
+			tree_hash_nodes.push_back(func_hash_node);
+			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+			hash_value_stack.push_back(hash_value);
+		}
+		else
+		{
+			assert_t(false);
 		}
 		
-		break;
+		
+		return false;// controlled by custom hash tree builder
 	}
 	case EOpIndexDirectStruct:
 	{
@@ -523,15 +263,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 			XXH64_hash_t struct_hash_value = XXH64(struct_string.data(), struct_string.size(), global_seed);
 			XXH64_hash_t member_hash_value = XXH64(member_string.data(), member_string.size(), global_seed);
-
-			auto struct_symbol_iter = hash_value_to_idx.find(struct_hash_value);
-			auto member_symbol_iter = hash_value_to_idx.find(member_hash_value);
-
-			assert_t(struct_symbol_iter != hash_value_to_idx.end());
-			assert_t(member_symbol_iter != hash_value_to_idx.end());
-
-			builder_context.inout_hash_nodes.push_back(struct_symbol_iter->second);
-			builder_context.inout_hash_nodes.push_back(member_symbol_iter->second);
+			builder_context.addUniqueHashValue(struct_hash_value);
+			builder_context.addUniqueHashValue(member_hash_value);
 
 			hash_string.append(std::to_string(XXH64_hash_t(struct_hash_value)).c_str());
 			hash_string.append(std::string("_"));
@@ -564,10 +297,375 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	}
 	};
 
-	
-
 	return true;
 }
+
+bool CASTHashTreeBuilder::constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type, TString& inoutStr)
+{
+	bool is_subvector_scalar = false;
+	if (const_untion)
+	{
+		int array_size = const_untion->getConstArray().size();
+		if (array_size > 1)
+		{
+			switch (basic_type)
+			{
+			case EbtDouble:
+				inoutStr.append("d");
+				break;
+			case EbtInt:
+				inoutStr.append("i");
+				break;
+			case EbtUint:
+				inoutStr.append("u");
+				break;
+			case EbtBool:
+				inoutStr.append("b");
+				break;
+			case EbtFloat:
+			default:
+				break;
+			};
+			inoutStr.append("vec");
+			inoutStr.append(std::to_string(array_size).c_str());
+			inoutStr.append("(");
+			is_subvector_scalar = true;
+		}
+	}
+	return is_subvector_scalar;
+}
+
+void CASTHashTreeBuilder::constUnionEnd(const TIntermConstantUnion* const_untion, TString& inoutStr)
+{
+	if (const_untion)
+	{
+		int array_size = const_untion->getConstArray().size();
+		if (array_size > 1)
+		{
+			inoutStr.append(")");
+		}
+	}
+}
+
+
+
+TString CASTHashTreeBuilder::generateConstantUnionStr(const TIntermConstantUnion* node, const TConstUnionArray& constUnion)
+{
+	TString constUnionStr;
+
+	int size = node->getType().computeNumComponents();
+
+	bool is_construct_vector = false;
+	bool is_construct_matrix = false;
+	bool is_subvector_scalar = false;
+	bool is_vector_swizzle = false;
+
+	if (getParentNode()->getAsAggregate())
+	{
+		TIntermAggregate* parent_node = getParentNode()->getAsAggregate();
+		TOperator node_operator = parent_node->getOp();
+		switch (node_operator)
+		{
+		case EOpMin:
+		case EOpMax:
+		case EOpClamp:
+		case EOpMix:
+		case EOpStep:
+		case EOpDistance:
+		case EOpDot:
+		case EOpCross:
+
+		case EOpLessThan:
+		case EOpGreaterThan:
+		case EOpLessThanEqual:
+		case EOpGreaterThanEqual:
+		case EOpVectorEqual:
+		case EOpVectorNotEqual:
+
+		case EOpMod:
+		case EOpModf:
+		case EOpPow:
+
+		case EOpConstructMat2x2:
+		case EOpConstructMat2x3:
+		case EOpConstructMat2x4:
+		case EOpConstructMat3x2:
+		case EOpConstructMat3x3:
+		case EOpConstructMat3x4:
+		case EOpConstructMat4x2:
+		case EOpConstructMat4x3:
+		case EOpConstructMat4x4:
+
+		case  EOpTexture:
+		case  EOpTextureProj:
+		case  EOpTextureLod:
+		case  EOpTextureOffset:
+		case  EOpTextureFetch:
+		case  EOpTextureFetchOffset:
+		case  EOpTextureProjOffset:
+		case  EOpTextureLodOffset:
+		case  EOpTextureProjLod:
+		case  EOpTextureProjLodOffset:
+		case  EOpTextureGrad:
+		case  EOpTextureGradOffset:
+		case  EOpTextureProjGrad:
+		case  EOpTextureProjGradOffset:
+		case  EOpTextureGather:
+		case  EOpTextureGatherOffset:
+		case  EOpTextureGatherOffsets:
+		case  EOpTextureClamp:
+		case  EOpTextureOffsetClamp:
+		case  EOpTextureGradClamp:
+		case  EOpTextureGradOffsetClamp:
+		case  EOpTextureGatherLod:
+		case  EOpTextureGatherLodOffset:
+		case  EOpTextureGatherLodOffsets:
+
+		case EOpAny:
+		case EOpAll:
+		{
+			is_construct_vector = true;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+	}
+
+	if (getParentNode()->getAsBinaryNode())
+	{
+		TIntermBinary* parent_node = getParentNode()->getAsBinaryNode();
+		TOperator node_operator = parent_node->getOp();
+		switch (node_operator)
+		{
+		case EOpAssign:
+
+		case  EOpAdd:
+		case  EOpSub:
+		case  EOpMul:
+		case  EOpDiv:
+		case  EOpMod:
+		case  EOpRightShift:
+		case  EOpLeftShift:
+		case  EOpAnd:
+		case  EOpInclusiveOr:
+		case  EOpExclusiveOr:
+		case  EOpEqual:
+		case  EOpNotEqual:
+		case  EOpVectorEqual:
+		case  EOpVectorNotEqual:
+		case  EOpLessThan:
+		case  EOpGreaterThan:
+		case  EOpLessThanEqual:
+		case  EOpGreaterThanEqual:
+		case  EOpComma:
+
+		case  EOpVectorTimesScalar:
+		case  EOpVectorTimesMatrix:
+
+		case  EOpLogicalOr:
+		case  EOpLogicalXor:
+		case  EOpLogicalAnd:
+		{
+			is_construct_vector = true;
+			break;
+		}
+
+		case  EOpMatrixTimesVector:
+		case  EOpMatrixTimesScalar:
+		{
+			is_construct_vector = true;
+			if (node->getMatrixCols() > 1 && node->getMatrixRows() > 1)
+			{
+				is_construct_matrix = true;
+			}
+			break;
+		}
+		case EOpVectorSwizzle:
+		{
+			is_vector_swizzle = true;
+			break;
+		}
+
+		default:
+		{
+			break;
+		}
+		}
+	}
+
+	if (is_construct_matrix)
+	{
+		int mat_row = node->getMatrixRows();
+		int mat_col = node->getMatrixCols();
+
+		int array_idx = 0;
+		for (int idx_row = 0; idx_row < mat_row; idx_row++)
+		{
+			switch (node->getBasicType())
+			{
+			case EbtDouble:
+				constUnionStr.append("d");
+				break;
+			case EbtInt:
+				constUnionStr.append("i");
+				break;
+			case EbtUint:
+				constUnionStr.append("u");
+				break;
+			case EbtBool:
+				constUnionStr.append("b");
+				break;
+			case EbtFloat:
+			default:
+				break;
+			};
+
+			constUnionStr.append("vec");
+			constUnionStr.append(std::to_string(mat_col).c_str());
+			constUnionStr.append("(");
+			for (int idx_col = 0; idx_col < mat_col; idx_col++)
+			{
+				TBasicType const_type = constUnion[array_idx].getType();
+				switch (const_type)
+				{
+				case EbtDouble:
+				{
+					constUnionStr.append(OutputDouble(constUnion[array_idx].getDConst()));
+					break;
+				}
+				default:
+				{
+					assert_t(false);
+					break;
+				}
+				}
+
+				if (idx_col != (mat_col - 1))
+				{
+					constUnionStr.append(",");
+				}
+			}
+			constUnionStr.append(")");
+			if (idx_row != (mat_row - 1))
+			{
+				constUnionStr.append(",");
+			}
+			array_idx++;
+		}
+		return;
+	}
+
+	if (is_construct_vector)
+	{
+		is_subvector_scalar = constUnionBegin(node, node->getBasicType(), constUnionStr);
+	}
+
+	bool is_all_components_same = true;
+	for (int i = 1; i < size; i++)
+	{
+		TBasicType const_type = constUnion[i].getType();
+		switch (const_type)
+		{
+		case EbtInt: {if (constUnion[i].getIConst() != constUnion[i - 1].getIConst()) { is_all_components_same = false; } break; }
+		case EbtDouble: {if (constUnion[i].getDConst() != constUnion[i - 1].getDConst()) { is_all_components_same = false; } break; }
+		case EbtUint: {if (constUnion[i].getUConst() != constUnion[i - 1].getUConst()) { is_all_components_same = false; } break; }
+		default:
+		{
+			assert_t(false);
+			break;
+		}
+		};
+	};
+
+	if (is_all_components_same)
+	{
+		size = 1;
+	}
+
+	for (int i = 0; i < size; i++)
+	{
+		TBasicType const_type = constUnion[i].getType();
+		switch (const_type)
+		{
+		case EbtInt:
+		{
+			if (is_vector_swizzle)
+			{
+				constUnionStr.insert(constUnionStr.end(), unionConvertToChar(constUnion[i].getIConst()));
+			}
+			else
+			{
+				constUnionStr.append(std::to_string(constUnion[i].getIConst()).c_str());
+			}
+			break;
+		}
+		case EbtDouble:
+		{
+			if (constUnion[i].getDConst() < 0)
+			{
+				//todo: fix me
+				constUnionStr.append("(");
+			}
+			constUnionStr.append(OutputDouble(constUnion[i].getDConst()));
+			if (constUnion[i].getDConst() < 0)
+			{
+				constUnionStr.append(")");
+			}
+			break;
+		}
+		case EbtUint:
+		{
+			constUnionStr.append(std::to_string(constUnion[i].getUConst()).c_str());
+			constUnionStr.append("u");
+			break;
+		}
+		case EbtBool:
+		{
+			if (constUnion[i].getBConst()) { constUnionStr.append("true"); }
+			else { constUnionStr.append("false"); }
+			break;
+		}
+
+		default:
+		{
+			assert_t(false);
+			break;
+		}
+		}
+
+		if (is_subvector_scalar && (i != (size - 1)))
+		{
+			constUnionStr.append(",");
+		}
+	}
+
+	if (is_construct_vector)
+	{
+		constUnionEnd(node, constUnionStr);
+	}
+
+	return constUnionStr;
+}
+
+void CASTHashTreeBuilder::visitConstantUnion(TIntermConstantUnion* node)
+{
+	TString constUnionStr = generateConstantUnionStr(node, node->getConstArray());
+	XXH64_hash_t hash_value = XXH64(constUnionStr.data(), constUnionStr.size(), global_seed);
+	hash_value_stack.push_back(hash_value);
+}
+
+// symbol hash
+// struct linker object:
+//		struct layout
+//		struct name
+// other linker obecjt
+//		layout
+// symbol hash:
+//		symbol type hash
+//		symbol index hash
 
 void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 {
@@ -588,11 +686,9 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 
 	if (is_declared == false)
 	{
-		TString hash_string;
 
 		const TType& type = node->getType();
-		TString type_string = getTypeText(type);
-		hash_string.append(type_string);
+		TString hash_string = getTypeText(type);
 
 		TBasicType basic_type = type.getBasicType();
 
@@ -640,36 +736,46 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 			tree_hash_nodes.push_back(linker_node);
 			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 		}
-		else
+		else //temp variable
 		{
-			//do nothing
-			//visitBinary
+			assert_t(builder_context.op_assign_visit_output_symbols == true);
+
+			XXH32_hash_t name_hash = XXH32(node->getName().data(), node->getName().size(), global_seed);
+			uint32_t symbol_index = scope_symbol_traverser.getSymbolIndex(name_hash);
+
+			hash_string.append(TString("_"));
+			hash_string.append(std::to_string(symbol_index));
+
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+
+			CHashNode symbol_hash_node;
+			symbol_hash_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+			symbol_hash_node.debug_string = hash_string;
+#endif
+			tree_hash_nodes.push_back(symbol_hash_node);
+			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+
+			hash_value_stack.push_back(hash_value);
 		}
 	}
 	else
 	{
-		TString hash_string;
-
 		const TType& type = node->getType();
-		TString type_string = getTypeText(type);
-		hash_string.append(type_string);
+		TString hash_string = getTypeText(type);
 
-		XXH64_hash_t type_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-		hash_value_stack.push_back(type_hash_value);
+		if (!type.getQualifier().hasLayout())
+		{
+			XXH32_hash_t name_hash = XXH32(node->getName().data(), node->getName().size(), global_seed);
+			uint32_t symbol_index = scope_symbol_traverser.getSymbolIndex(name_hash);
 
-		if (type.getQualifier().hasLayout())
-		{
-			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			builder_context.input_hash_nodes.push_back(hash_value_to_idx[hash_value]);
-		}
-		else
-		{
 			hash_string.append(TString("_"));
-			hash_string.append(node->getName());
-			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			auto iter = builder_context.symbol_last_hashnode_map.find(hash_value);
-			builder_context.input_hash_nodes.push_back(iter->second);
+			hash_string.append(std::to_string(symbol_index));
 		}
+		
+		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		builder_context.addUniqueHashValue(hash_value);
+		hash_value_stack.push_back(hash_value);
 	}
 
 	if (!node->getConstArray().empty() && (is_declared == false))
@@ -767,9 +873,10 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		}
 
 		CASTHashTreeBuilder hash_tree_builder;
-		TASTHashTraverser hash_tree_tranverser(&hash_tree_builder);
-		intermediate->getTreeRoot()->traverse(&hash_tree_tranverser);
+		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
 
 	}
 	return false;
 }
+
+

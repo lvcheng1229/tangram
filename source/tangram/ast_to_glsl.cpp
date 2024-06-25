@@ -3,6 +3,7 @@
 //todo: 
 // 1. fix bug xyzw.x -> to .x
 // 2. mat fold highp vec3 _23=max(pc2_h[0].xyzw.xyz*dot(vec3(abs(_28.x),abs(_28.y),abs(_28.z)),vec3(0.300048828125,0.58984375,0.1099853515625)),vec3(0.))*1.;
+// 3. use node path instead of swizzle context
 
 
 #if TANGRAM_DEBUG
@@ -975,13 +976,13 @@ bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
     return false;  /* visit the selection node on high level */
 }
 
-static char unionConvertToChar(int index)
+char unionConvertToChar(int index)
 {
     static const char const_indices[4] = { 'x','y','z','w' };
     return const_indices[index];
 }
 
-static TString OutputDouble(double value)
+TString OutputDouble(double value)
 {
     if (std::isinf(value))
     {

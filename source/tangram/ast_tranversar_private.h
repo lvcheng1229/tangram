@@ -168,4 +168,7 @@ protected:
     TLoopHeaderTraverser loop_header_tranverser;
 };
 
+TString OutputDouble(double value);
+char unionConvertToChar(int index);
+
 
