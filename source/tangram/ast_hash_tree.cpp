@@ -148,8 +148,9 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 #if TANGRAM_DEBUG
 		debug_traverser.visitBinary(EvPreVisit, node);
 		node->getLeft()->traverse(this);
-		debug_traverser.visitBinary(EvPreVisit, node);
+		debug_traverser.visitBinary(EvInVisit, node);
 		node->getRight()->traverse(&scope_symbol_traverser);
+		debug_traverser.visitBinary(EvPostVisit, node);
 #endif
 
 
@@ -279,7 +280,13 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 			XXH64_hash_t index_direct_struct_hash = XXH64(hash_string.data(), hash_string.size(), global_seed);
 			hash_value_stack.push_back(index_direct_struct_hash);
-
+#if TANGRAM_DEBUG
+			debug_traverser.visitBinary(EvPreVisit, node);
+			node->getLeft()->traverse(&debug_traverser);
+			debug_traverser.visitBinary(EvInVisit, node);
+			node->getRight()->traverse(&debug_traverser);
+			debug_traverser.visitBinary(EvPostVisit, node);
+#endif
 			node->setLeft(nullptr);
 			node->setRight(nullptr);
 		}
@@ -287,19 +294,25 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	}
 	default:
 	{
-		XXH64_hash_t hash_value_right = hash_value_stack.back();
-		hash_value_stack.pop_back();
+#if TANGRAM_DEBUG
+		debug_traverser.visitBinary(visit, node);
+#endif
+		if (visit == EvPostVisit)
+		{
+			XXH64_hash_t hash_value_right = hash_value_stack.back();
+			hash_value_stack.pop_back();
 
-		XXH64_hash_t hash_value_left = hash_value_stack.back();
-		hash_value_stack.pop_back();
+			XXH64_hash_t hash_value_left = hash_value_stack.back();
+			hash_value_stack.pop_back();
 
-		hash_string.append(std::to_string(XXH64_hash_t(hash_value_left)).c_str());
-		hash_string.append(std::string("_"));
-		hash_string.append(std::to_string(XXH64_hash_t(hash_value_right)).c_str());
-		hash_string.append(std::string("_"));
-		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			hash_string.append(std::to_string(XXH64_hash_t(hash_value_left)).c_str());
+			hash_string.append(std::string("_"));
+			hash_string.append(std::to_string(XXH64_hash_t(hash_value_right)).c_str());
+			hash_string.append(std::string("_"));
+			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 
-		hash_value_stack.push_back(hash_value);
+			hash_value_stack.push_back(hash_value);
+		}
 	}
 	};
 
@@ -658,6 +671,9 @@ TString CASTHashTreeBuilder::generateConstantUnionStr(const TIntermConstantUnion
 
 void CASTHashTreeBuilder::visitConstantUnion(TIntermConstantUnion* node)
 {
+#if TANGRAM_DEBUG
+	debug_traverser.visitConstantUnion(node);
+#endif
 	TString constUnionStr = generateConstantUnionStr(node, node->getConstArray());
 	XXH64_hash_t hash_value = XXH64(constUnionStr.data(), constUnionStr.size(), global_seed);
 	hash_value_stack.push_back(hash_value);
@@ -675,6 +691,9 @@ void CASTHashTreeBuilder::visitConstantUnion(TIntermConstantUnion* node)
 
 void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 {
+#if TANGRAM_DEBUG
+	debug_traverser.visitSymbol(node);
+#endif
 	bool is_declared = false;
 
 	{
@@ -688,6 +707,13 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 		{
 			is_declared = true;
 		}
+	}
+
+	const TString& symbol_name = node->getName();
+	if ((symbol_name[0] == 'g') && (symbol_name[1] == 'l') && (symbol_name[2] == '_'))
+	{
+		XXH64_hash_t hash_value = XXH64(symbol_name.data(), symbol_name.size(), global_seed);
+		hash_value_stack.push_back(hash_value);
 	}
 
 	if (is_declared == false)

@@ -31,7 +31,6 @@ struct CHashNode
 	std::set<uint64_t> out_hash_nodes;
 };
 
-
 class CGlobalHashNode
 {
 public:
