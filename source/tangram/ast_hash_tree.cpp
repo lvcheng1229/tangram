@@ -14,8 +14,6 @@ void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 	}
 }
 
-
-
 TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
 {
 	TString type_string;
@@ -147,6 +145,14 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	{
 	case EOpAssign:
 	{
+#if TANGRAM_DEBUG
+		debug_traverser.visitBinary(EvPreVisit, node);
+		node->getLeft()->traverse(this);
+		debug_traverser.visitBinary(EvPreVisit, node);
+		node->getRight()->traverse(&scope_symbol_traverser);
+#endif
+
+
 		if (visit == EvPreVisit)
 		{
 			builder_context.scopeReset();

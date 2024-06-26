@@ -158,31 +158,13 @@ private:
 
 	std::set<long long> declared_symbols_id;
 
+
+
 	CScopeSymbolNameTraverser scope_symbol_traverser;
-
+#if TANGRAM_DEBUG
+	TAstToGLTraverser debug_traverser;
+#endif
 };
-
-
-//class TASTHashTraverser : public TIntermTraverser {
-//public:
-//	TASTHashTraverser(CASTHashTreeBuilder* input_traverser) :
-//		custom_traverser(input_traverser),
-//		TIntermTraverser(true, false, false, false) //
-//	{ }
-//
-//	virtual bool visitBinary(TVisit, TIntermBinary* node);
-//	virtual bool visitUnary(TVisit, TIntermUnary* node);
-//	virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-//	virtual bool visitSelection(TVisit, TIntermSelection* node);
-//	virtual void visitConstantUnion(TIntermConstantUnion* node);
-//	virtual void visitSymbol(TIntermSymbol* node);
-//	virtual bool visitLoop(TVisit, TIntermLoop* node);
-//	virtual bool visitBranch(TVisit, TIntermBranch* node);
-//	virtual bool visitSwitch(TVisit, TIntermSwitch* node);
-//
-//public:
-//	CASTHashTreeBuilder* custom_traverser;
-//};
 
 
 
