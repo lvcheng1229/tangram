@@ -77,14 +77,14 @@ public:
 	// hash right node
 	virtual bool visitBinary(TVisit, TIntermBinary* node);
 
-	//virtual bool visitUnary(TVisit, TIntermUnary* node);
-	//virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-	//virtual bool visitSelection(TVisit, TIntermSelection* node);
+	virtual bool visitUnary(TVisit, TIntermUnary* node);
+	virtual bool visitAggregate(TVisit, TIntermAggregate* node);
+	virtual bool visitSelection(TVisit, TIntermSelection* node);
 	virtual void visitConstantUnion(TIntermConstantUnion* node);
 	virtual void visitSymbol(TIntermSymbol* node);
-	//virtual bool visitLoop(TVisit, TIntermLoop* node);
-	//virtual bool visitBranch(TVisit, TIntermBranch* node);
-	//virtual bool visitSwitch(TVisit, TIntermSwitch* node);
+	virtual bool visitLoop(TVisit, TIntermLoop* node);
+	virtual bool visitBranch(TVisit, TIntermBranch* node);
+	virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
 private:
 	bool constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type, TString& inoutStr);

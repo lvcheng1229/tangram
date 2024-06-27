@@ -425,8 +425,7 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             code_buffer.append(index_direct_struct_str);
 
             // no need to output the struct name
-            node->setLeft(nullptr);
-            node->setRight(nullptr);
+            return false;
         }
         else if (visit == EvInVisit)
         {

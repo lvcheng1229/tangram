@@ -129,6 +129,8 @@ public:
     virtual bool visitBranch(TVisit, TIntermBranch* node);
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
+    inline void appendDebugString(const TString& debug_str) { code_buffer.append(debug_str); }
+
 private:
     void emitTypeConvert(TVisit visit, TIntermUnary* node, const TString& unaryName, const TString& vecName, bool onlyConvertVec = false);
 
