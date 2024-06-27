@@ -2,6 +2,7 @@
 
 static int global_seed = 42;
 
+// find and store the symbols in the scope in order
 void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 {
 	const TString& node_string = node->getName();
@@ -119,13 +120,10 @@ TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, 
 		appendInt(type.getVectorSize());
 	}
 
-	if (type.isStruct() && type.getStruct())
-	{
-		
-	}
 	return type_string;
 }
 
+// binary hash
 // 2_operator_lefthash_righthash
 
 bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
@@ -133,7 +131,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	TOperator node_operator = node->getOp();
 	TString hash_string;
 
-	if (visit == EvPostVisit)
+	if (visit == EvPostVisit || (visit == EvPreVisit && (node_operator == EOpAssign || node_operator == EOpIndexDirectStruct)))
 	{
 		hash_string.reserve(2 + 3 + 5 + 5);
 		hash_string.append(std::string("2_")); 
@@ -150,31 +148,13 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 		debug_traverser.incrementDepth(node);
 #endif
 
-
 		if (visit == EvPreVisit)
 		{
+			// find all of the symbols in the scope
 			builder_context.scopeReset();
 			scope_symbol_traverser.reset();
 			node->getLeft()->traverse(&scope_symbol_traverser);
 			node->getRight()->traverse(&scope_symbol_traverser);
-
-			TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
-
-			if (symbol_node == nullptr)
-			{
-				TIntermBinary* binary_node = node->getLeft()->getAsBinaryNode(); //e.g. swizzle a.x
-				if (binary_node)
-				{
-					symbol_node = binary_node->getLeft()->getAsSymbolNode();
-				}
-			}
-
-			if (symbol_node != nullptr)
-			{
-				long long symbol_id = symbol_node->getId();
-				auto iter = declared_symbols_id.find(symbol_id);
-				if (iter == declared_symbols_id.end()) { declared_symbols_id.insert(symbol_id); }
-			}
 
 			// output symbols
 			if (node->getLeft())
@@ -840,6 +820,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 				tree_hash_nodes.push_back(symbol_hash_node);
 				hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
+				builder_context.addUniqueHashValue(out_scope_hash);
 			}
 		}
 	}
