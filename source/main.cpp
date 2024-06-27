@@ -442,7 +442,7 @@ int main()
 	
 	
 	{
-		TestSingleAstToGL();
+		//TestSingleAstToGL();
 		TestSingleASTToHashTree();
 		return 0;
 	}

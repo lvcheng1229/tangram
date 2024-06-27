@@ -90,6 +90,7 @@ private:
 	bool constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type, TString& inoutStr);
 	void constUnionEnd(const TIntermConstantUnion* const_untion, TString& inoutStr);
 
+	TString getArraySize(const TType& type);
 	TString generateConstantUnionStr(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
 
 	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
@@ -102,6 +103,9 @@ private:
 	public:
 		// map from symbol to hashnode
 		std::unordered_map<XXH64_hash_t, XXH64_hash_t>symbol_last_hashnode_map;
+
+		// iterate linker objects
+		bool is_iterate_linker_objects = false;
 
 		bool op_assign_visit_output_symbols = false;
 		bool op_assign_visit_input_symbols = false;

@@ -209,7 +209,6 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         }
     }
 
-    
     if (is_vec)
     {
         switch (basic_type)
@@ -232,13 +231,10 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         }
     }
 
-    
-
     if (type.isParameterized())
     {
         assert_t(false);
     }
-
 
     if (is_mat)
     {
@@ -265,8 +261,6 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         appendInt(type.getVectorSize());
     }
 
-  
-
     if ((!is_vec) && (!is_blk) && (!is_mat))
     {
         appendStr(type.getBasicTypeString().c_str());
@@ -282,8 +276,6 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         appendStr(" ");
         appendStr(type.getFieldName().c_str());
     }
-
-    
 
     if (type.isStruct() && type.getStruct())
     {
@@ -1414,9 +1406,9 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
     }
 
 #if TANGRAM_DEBUG
-    if (node->getName() == "_49")
+    if (node->getName() == "pc5_h")
     {
-        int aa = 1;
+        int debug_var = 1;
     }
 #endif
 

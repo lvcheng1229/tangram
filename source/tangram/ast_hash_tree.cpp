@@ -120,6 +120,11 @@ TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, 
 		appendInt(type.getVectorSize());
 	}
 
+	if ((!is_vec) && (!is_blk) && (!is_mat))
+	{
+		appendStr(type.getBasicTypeString().c_str());
+	}
+
 	return type_string;
 }
 
@@ -271,7 +276,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 			XXH64_hash_t struct_hash_value = XXH64(struct_string.data(), struct_string.size(), global_seed);
 			XXH64_hash_t member_hash_value = XXH64(member_string.data(), member_string.size(), global_seed);
-			builder_context.addUniqueHashValue(struct_hash_value);
+			//builder_context.addUniqueHashValue(struct_hash_value); // only hash the member node
 			builder_context.addUniqueHashValue(member_hash_value);
 
 			hash_string.append(std::to_string(XXH64_hash_t(struct_hash_value)).c_str());
@@ -336,6 +341,30 @@ bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 	if (visit == EvPreVisit) { debug_traverser.incrementDepth(node); }
 	if (visit == EvPostVisit) { debug_traverser.decrementDepth(); }
 #endif
+	TOperator node_operator = node->getOp();
+	switch (node_operator)
+	{
+	case EOpLinkerObjects:
+	{
+		if (visit == EvPreVisit)
+		{
+			builder_context.is_iterate_linker_objects = true;
+		}
+		else if (visit == EvPostVisit)
+		{
+			builder_context.is_iterate_linker_objects = false;
+		}
+		break;
+	}
+	default:
+	{
+
+	}
+	}
+
+	// EOpMix EOpConstructMat2x4
+	assert_t(false);
+	
 	return true;
 }
 
@@ -392,7 +421,22 @@ void CASTHashTreeBuilder::constUnionEnd(const TIntermConstantUnion* const_untion
 	}
 }
 
-
+TString CASTHashTreeBuilder::getArraySize(const TType& type)
+{
+	TString array_size_str;
+	if (type.isArray())
+	{
+		const TArraySizes* array_sizes = type.getArraySizes();
+		for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
+		{
+			int size = array_sizes->getDimSize(i);
+			array_size_str.append("[");
+			array_size_str.append(std::to_string(array_sizes->getDimSize(i)).c_str());
+			array_size_str.append("]");
+		}
+	}
+	return array_size_str;
+}
 
 TString CASTHashTreeBuilder::generateConstantUnionStr(const TIntermConstantUnion* node, const TConstUnionArray& constUnion)
 {
@@ -744,57 +788,104 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 
 	if (is_declared == false)
 	{
-
 		const TType& type = node->getType();
 		TString hash_string = getTypeText(type);
 
 		TBasicType basic_type = type.getBasicType();
 
-		if (basic_type == EbtBlock)// uniform buffer linker object
+		if (builder_context.is_iterate_linker_objects)
 		{
-			hash_string.append(node->getName());
-			assert_t(type.isStruct() && type.getStruct());
+			if (basic_type == EbtBlock)// uniform buffer linker object
+			{
+				hash_string.append(node->getName());
+				assert_t(type.isStruct() && type.getStruct());
 
+				{
+					XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+					CHashNode linker_node;
+					linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+					linker_node.debug_string = hash_string;
+					debug_traverser.appendDebugString("[CHashStr:");
+					debug_traverser.appendDebugString(hash_string);
+					debug_traverser.appendDebugString("]");
+#endif
+					tree_hash_nodes.push_back(linker_node);
+					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+				}
+
+				const TTypeList* structure = type.getStruct();
+				for (size_t i = 0; i < structure->size(); ++i)
+				{
+					TString mem_name = hash_string;
+					TType* struct_mem_type = (*structure)[i].type;
+					mem_name.append(struct_mem_type->getFieldName().c_str());
+					XXH64_hash_t hash_value = XXH64(mem_name.data(), mem_name.size(), global_seed);
+
+					CHashNode linker_node;
+					linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+					linker_node.debug_string = mem_name;
+					debug_traverser.appendDebugString("\n[CHashStr:");
+					debug_traverser.appendDebugString(mem_name);
+					debug_traverser.appendDebugString("]");
+#endif
+					tree_hash_nodes.push_back(linker_node);
+					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+				}
+			}
+			else if (basic_type == EbtSampler) //sample linker object
+			{
+				hash_string.append(node->getName());
+				XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+				CHashNode linker_node;
+				linker_node.hash_value = hash_value;
+#if TANGRAM_DEBUG
+				linker_node.debug_string = hash_string;
+				debug_traverser.appendDebugString("[CHashStr:");
+				debug_traverser.appendDebugString(hash_string);
+				debug_traverser.appendDebugString("]");
+#endif
+				tree_hash_nodes.push_back(linker_node);
+				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+			}
+			else if (type.getQualifier().hasLayout() && (basic_type != EbtBlock))//other linker object
 			{
 				XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 				CHashNode linker_node;
 				linker_node.hash_value = hash_value;
 #if TANGRAM_DEBUG
 				linker_node.debug_string = hash_string;
+				debug_traverser.appendDebugString("[CHashStr:");
+				debug_traverser.appendDebugString(hash_string);
+				debug_traverser.appendDebugString("]");
 #endif
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
-
-			const TTypeList* structure = type.getStruct();
-			for (size_t i = 0; i < structure->size(); ++i)
+			else if (type.getQualifier().isUniform())
 			{
-				TString mem_name = hash_string;
-				TType* struct_mem_type = (*structure)[i].type;
-				mem_name.append(struct_mem_type->getFieldName().c_str());
-				XXH64_hash_t hash_value = XXH64(mem_name.data(), mem_name.size(), global_seed);
+				hash_string.append(node->getName());
+				hash_string.append(getArraySize(type));
+				XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 
 				CHashNode linker_node;
 				linker_node.hash_value = hash_value;
 #if TANGRAM_DEBUG
-				linker_node.debug_string = mem_name;
+				linker_node.debug_string = hash_string;
+				debug_traverser.appendDebugString("[CHashStr:");
+				debug_traverser.appendDebugString(hash_string);
+				debug_traverser.appendDebugString("]");
 #endif
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
+			else
+			{
+				assert_t(false);
+			}
 		}
-		else if (type.getQualifier().hasLayout() && (basic_type != EbtBlock))//other linker object
-		{
-			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			CHashNode linker_node;
-			linker_node.hash_value = hash_value;
-#if TANGRAM_DEBUG
-			linker_node.debug_string = hash_string;
-#endif
-			tree_hash_nodes.push_back(linker_node);
-			hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
-		}
-		else //temp variable
+		else // no linker objects
 		{
 			assert_t(builder_context.op_assign_visit_output_symbols == true);
 
@@ -829,7 +920,31 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 		const TType& type = node->getType();
 		TString hash_string = getTypeText(type);
 
-		if (!type.getQualifier().hasLayout())
+		if (type.getBasicType() == EbtSampler)
+		{
+			hash_string.append(node->getName());
+			XXH64_hash_t in_scope_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			hash_value_stack.push_back(in_scope_hash_value);
+			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
+			builder_context.addUniqueHashValue(out_scope_hash);
+		}
+		else if (type.getQualifier().hasLayout())
+		{
+			XXH64_hash_t in_scope_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			hash_value_stack.push_back(in_scope_hash_value);
+			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
+			builder_context.addUniqueHashValue(out_scope_hash);
+		}
+		else if (type.getQualifier().isUniform())
+		{
+			hash_string.append(node->getName());
+			hash_string.append(getArraySize(type));
+			XXH64_hash_t in_scope_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			hash_value_stack.push_back(in_scope_hash_value);
+			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
+			builder_context.addUniqueHashValue(out_scope_hash);
+		}
+		else
 		{
 			const XXH64_hash_t name_hash = XXH64(node->getName().data(), node->getName().size(), global_seed);
 			uint32_t symbol_index = scope_symbol_traverser.getSymbolIndex(name_hash);
@@ -838,15 +953,6 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 			hash_string.append(std::to_string(symbol_index));
 
 			const XXH64_hash_t out_scope_hash = name_hash;
-			builder_context.addUniqueHashValue(out_scope_hash);
-		}
-		
-		XXH64_hash_t in_scope_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-		hash_value_stack.push_back(in_scope_hash_value);
-		
-		if (type.getQualifier().hasLayout())
-		{
-			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
 			builder_context.addUniqueHashValue(out_scope_hash);
 		}
 	}
@@ -928,7 +1034,8 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 			const int shader_lengths = static_cast<int>(src_code.size());
 			shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
 			shader.setEntryPoint("main");
-			shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
+			bool is_surceee = shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
+			assert_t(is_surceee);
 		}
 
 		TIntermediate* intermediate = shader.getIntermediate();
