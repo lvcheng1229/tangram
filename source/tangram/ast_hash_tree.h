@@ -107,6 +107,8 @@ private:
 		// iterate linker objects
 		bool is_iterate_linker_objects = false;
 
+		bool is_second_level_function = false;
+
 		bool op_assign_visit_output_symbols = false;
 		bool op_assign_visit_input_symbols = false;
 
