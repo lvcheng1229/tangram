@@ -68,6 +68,7 @@ bool TSymbolScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 				else
 				{
 					symbol_max_line[symbol_id] = node->getLoc().line;
+					symbol_min_line[symbol_id] = node->getLoc().line;
 				}
 			}
 		}
@@ -91,14 +92,13 @@ void TSymbolScopeTraverser::visitSymbol(TIntermSymbol* node)
 	else
 	{
 		symbol_max_line[symbol_id] = node->getLoc().line;
+		symbol_min_line[symbol_id] = node->getLoc().line;
 	}
 }
 
-
-
 bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
-	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+	updateMinMaxLine(node);
 
 	TOperator node_operator = node->getOp();
 	switch (node_operator)
@@ -138,7 +138,7 @@ bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 
 bool TSubScopeTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
-	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+	updateMinMaxLine(node);
 	incrementDepth(node);
 	node->getCondition()->traverse(this);
 	if (node->getTrueBlock()){node->getTrueBlock()->traverse(this);}
@@ -148,7 +148,7 @@ bool TSubScopeTraverser::visitSelection(TVisit, TIntermSelection* node)
 }
 void TSubScopeTraverser::visitSymbol(TIntermSymbol* node)
 {
-	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+	updateMinMaxLine(node);
 
 	long long symbol_id = node->getId();
 	auto iter = declared_symbols_id->find(symbol_id);
@@ -163,7 +163,8 @@ void TSubScopeTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TSubScopeTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
-	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+	updateMinMaxLine(node);
+
 	if (node->getUnroll()) { assert_t(false); }
 	if (node->getLoopDependency()) { assert_t(false); }
 
@@ -179,7 +180,7 @@ bool TSubScopeTraverser::visitLoop(TVisit, TIntermLoop* node)
 
 bool TSubScopeTraverser::visitSwitch(TVisit, TIntermSwitch* node)
 {
-	subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+	updateMinMaxLine(node);
 
 	incrementDepth(node);
 	node->getCondition()->traverse(this);

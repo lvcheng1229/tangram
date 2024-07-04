@@ -121,7 +121,7 @@ private:
 			input_hash_value.clear();
 		}
 
-		inline void addUniqueHashValue(XXH64_hash_t hash)
+		inline void addOpAssignUniqueHashValue(XXH64_hash_t hash)
 		{
 			if (op_assign_visit_input_symbols)
 			{
@@ -151,8 +151,8 @@ private:
 			}
 		}
 
-		inline std::vector<XXH64_hash_t>& getOutputHashValues() { return output_hash_value; }
-		inline std::vector<XXH64_hash_t>& getInputHashValues() { return input_hash_value; }
+		inline std::vector<XXH64_hash_t>& getOpAssignOutputHashValues() { return output_hash_value; }
+		inline std::vector<XXH64_hash_t>& getOpAssignInputHashValues() { return input_hash_value; }
 
 	private:
 		// input symbol hash value and output symbol hash value

@@ -895,7 +895,7 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 
 bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
-    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitSelection(EvPreVisit, node);
     declareSubScopeSymbol();
 
@@ -1455,7 +1455,7 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
-    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitLoop(EvPreVisit, node);
     declareSubScopeSymbol();
 
@@ -1546,7 +1546,7 @@ bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
 
 bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
 {
-    subscope_tranverser.resetSubScopeMaxLine();
+    subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitSwitch(EvPreVisit, node);
 
     declareSubScopeSymbol();

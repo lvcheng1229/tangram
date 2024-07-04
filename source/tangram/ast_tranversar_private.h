@@ -38,8 +38,12 @@ public:
     virtual void visitSymbol(TIntermSymbol* node);
 
     inline std::unordered_map<long long, int>* getSymbolMaxLine() { return &symbol_max_line; };
+    inline std::unordered_map<long long, int>* getSymbolMinLine() { return &symbol_min_line; };
+
+
 private:
     std::unordered_map<long long, int> symbol_max_line;
+    std::unordered_map<long long, int> symbol_min_line;
 };
 
 class CSymbolNameMapper
@@ -66,26 +70,60 @@ public:
     TSubScopeTraverser(const std::set<long long>* input_declared_symbols_id)
         :declared_symbols_id(input_declared_symbols_id),
         subscope_max_line(0),
+        subscope_min_line(1e20),
         TIntermTraverser(true, true, true, false) {};
 
+    void updateMinMaxLine(TIntermNode* node)
+    {
+        subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
+        subscope_min_line = (std::min)(subscope_min_line, node->getLoc().line);
+    }
+
     virtual bool visitBinary(TVisit, TIntermBinary* node);
-    virtual bool visitUnary(TVisit, TIntermUnary* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
-    virtual bool visitAggregate(TVisit, TIntermAggregate* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
+    virtual bool visitUnary(TVisit, TIntermUnary* node) 
+    { 
+        updateMinMaxLine(node);
+        return true; 
+    }
+
+    virtual bool visitAggregate(TVisit, TIntermAggregate* node) 
+    { 
+        updateMinMaxLine(node);
+        return true; 
+    }
+
     virtual bool visitSelection(TVisit, TIntermSelection* node);
-    virtual void visitConstantUnion(TIntermConstantUnion* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return ; }
+    virtual void visitConstantUnion(TIntermConstantUnion* node) 
+    { 
+        updateMinMaxLine(node);
+        return ; 
+    }
+
     virtual void visitSymbol(TIntermSymbol* node);
     virtual bool visitLoop(TVisit, TIntermLoop* node);
-    virtual bool visitBranch(TVisit, TIntermBranch* node) { subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line); return true; }
+    virtual bool visitBranch(TVisit, TIntermBranch* node) 
+    { 
+        updateMinMaxLine(node);
+        return true; 
+    }
+
     virtual bool visitSwitch(TVisit, TIntermSwitch* node);
 
-    inline void resetSubScopeMaxLine() { subscope_max_line = 0; subscope_symbols.clear(); };
+    inline void resetSubScopeMinMaxLine() 
+    { 
+        subscope_min_line = 1e20; 
+        subscope_max_line = 0; 
+        subscope_symbols.clear(); 
+    };
+
     inline std::unordered_map<int, TIntermSymbol*>& getSubScopeSymbols() { return subscope_symbols; }
     inline int getSubScopeMaxLine() { return subscope_max_line; };
-
+    inline int getSubScopeMinLine() { return subscope_min_line; };
 
 private:
     const std::set<long long>* declared_symbols_id;
     int subscope_max_line;
+    int subscope_min_line;
     std::unordered_map<int, TIntermSymbol*> subscope_symbols;
 };
 
