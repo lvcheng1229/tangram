@@ -131,6 +131,11 @@ TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, 
 // binary hash
 // 2_operator_lefthash_righthash
 
+void CASTHashTreeBuilder::preTranverse(TIntermediate* intermediate)
+{
+	intermediate->getTreeRoot()->traverse(&symbol_scope_traverser);
+}
+
 bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 {
 	TOperator node_operator = node->getOp();
@@ -1022,11 +1027,54 @@ bool CASTHashTreeBuilder::visitBranch(TVisit, TIntermBranch* node)
 
 bool CASTHashTreeBuilder::visitSwitch(TVisit visit, TIntermSwitch* node)
 {
-	assert_t(false);
-	//if (builder_context.is_second_level_function == false);
-	
-	if (visit == EvPreVisit) { builder_context.is_second_level_function = true; }
-	if (visit == EvPostVisit) { builder_context.is_second_level_function = false; }
+	if (builder_context.is_second_level_function == false)
+	{
+		subscope_tranverser.resetSubScopeMaxLine();
+		subscope_tranverser.visitSwitch(EvPreVisit, node);
+
+#if TANGRAM_DEBUG
+		debug_traverser.visitSwitch(EvPreVisit, node);
+		debug_traverser.incrementDepth(node);
+		node->getCondition()->traverse(&debug_traverser);
+		node->getBody()->traverse(&debug_traverser);
+		debug_traverser.decrementDepth();
+		debug_traverser.visitSwitch(EvPostVisit, node);
+#endif
+
+		builder_context.is_second_level_function = true;
+		node->getCondition()->traverse(this);
+		node->getBody()->traverse(this);
+		builder_context.is_second_level_function = false;
+
+		XXH64_hash_t body_hash_value = hash_value_stack.back();
+		hash_value_stack.pop_back();
+
+		XXH64_hash_t condition_hash_value = hash_value_stack.back();
+		hash_value_stack.pop_back();
+
+		TString hash_string;
+		hash_string.reserve(10 + 2 * 8);
+		hash_string.append(std::string("2_Switch"));
+		hash_string.append(std::string("_"));
+		hash_string.append(std::to_string(XXH64_hash_t(condition_hash_value)).c_str());
+		hash_string.append(std::string("_"));
+		hash_string.append(std::to_string(XXH64_hash_t(body_hash_value)).c_str());
+
+		XXH64_hash_t node_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		hash_value_stack.push_back(node_hash_value);
+
+		CHashNode func_hash_node;
+		func_hash_node.hash_value = node_hash_value;
+#if TANGRAM_DEBUG
+		func_hash_node.debug_string = hash_string;
+#endif
+
+		return false;
+	}
+	else
+	{
+		return true;
+	}
 	
 	return true;
 }
@@ -1117,6 +1165,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		}
 
 		CASTHashTreeBuilder hash_tree_builder;
+		hash_tree_builder.preTranverse(intermediate);
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
 
 

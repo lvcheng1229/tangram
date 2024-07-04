@@ -65,9 +65,12 @@ class CASTHashTreeBuilder : public TIntermTraverser
 {
 public:
 	CASTHashTreeBuilder() :
+		subscope_tranverser(&declared_symbols_id),
 		TIntermTraverser(true, true, true, false) //
 	{ }
 	
+	void preTranverse(TIntermediate* intermediate);
+
 	//对于所有的赋值表达式，搜索其所有的输入参数，按出现顺序排序，记录in inout和out
 	//对于main函数,加个define来转换
 	
@@ -164,6 +167,8 @@ private:
 	std::set<long long> declared_symbols_id;
 
 
+	TSubScopeTraverser subscope_tranverser;
+	TSymbolScopeTraverser symbol_scope_traverser;
 
 	CScopeSymbolNameTraverser scope_symbol_traverser;
 #if TANGRAM_DEBUG
