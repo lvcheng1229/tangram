@@ -70,13 +70,13 @@ public:
     TSubScopeTraverser(const std::set<long long>* input_declared_symbols_id)
         :declared_symbols_id(input_declared_symbols_id),
         subscope_max_line(0),
-        subscope_min_line(1e20),
+        //subscope_min_line(1e20),
         TIntermTraverser(true, true, true, false) {};
 
     void updateMinMaxLine(TIntermNode* node)
     {
         subscope_max_line = (std::max)(subscope_max_line, node->getLoc().line);
-        subscope_min_line = (std::min)(subscope_min_line, node->getLoc().line);
+        //subscope_min_line = (std::min)(subscope_min_line, node->getLoc().line);
     }
 
     virtual bool visitBinary(TVisit, TIntermBinary* node);
@@ -111,19 +111,19 @@ public:
 
     inline void resetSubScopeMinMaxLine() 
     { 
-        subscope_min_line = 1e20; 
+        //subscope_min_line = 1e20; 
         subscope_max_line = 0; 
         subscope_symbols.clear(); 
     };
 
     inline std::unordered_map<int, TIntermSymbol*>& getSubScopeSymbols() { return subscope_symbols; }
     inline int getSubScopeMaxLine() { return subscope_max_line; };
-    inline int getSubScopeMinLine() { return subscope_min_line; };
+    //inline int getSubScopeMinLine() { return subscope_min_line; };
 
 private:
     const std::set<long long>* declared_symbols_id;
     int subscope_max_line;
-    int subscope_min_line;
+    //int subscope_min_line;
     std::unordered_map<int, TIntermSymbol*> subscope_symbols;
 };
 
@@ -153,6 +153,47 @@ public:
         loop_header_tranverser(&declared_symbols_id),
         TIntermTraverser(true, true, true, false) //
     { }
+
+    struct SVisitState
+    {
+        bool enable_visit_binary = true;
+        bool enable_visit_unary = true;
+        bool enable_visit_aggregate = true;
+        bool enable_visit_selection = true;
+        bool enable_visit_const_union = true;
+        bool enable_visit_symbol = true;
+        bool enable_visit_loop = true;
+        bool enable_visit_branch = true;
+        bool enable_visit_switch = true;
+
+        inline void DisableAllVisitState()
+        {
+            enable_visit_binary = false;
+            enable_visit_unary = false;
+            enable_visit_aggregate = false;
+            enable_visit_selection = false;
+            enable_visit_const_union = false;
+            enable_visit_symbol = false;
+            enable_visit_loop = false;
+            enable_visit_branch = false;
+            enable_visit_switch = false;
+        }
+
+        inline void EnableAllVisitState()
+        {
+            enable_visit_binary = true;
+            enable_visit_unary = true;
+            enable_visit_aggregate = true;
+            enable_visit_selection = true;
+            enable_visit_const_union = true;
+            enable_visit_symbol = true;
+            enable_visit_loop = true;
+            enable_visit_branch = true;
+            enable_visit_switch = true;
+        }
+    };
+
+    SVisitState visit_state;
 
     void preTranverse(TIntermediate* intermediate);
     inline const std::string& getCodeBuffer() { return code_buffer; };

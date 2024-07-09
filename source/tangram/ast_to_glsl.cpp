@@ -342,6 +342,11 @@ TString TAstToGLTraverser::getArraySize(const TType& type)
 
 bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
+    if (!visit_state.enable_visit_binary)
+    {
+        return false;
+    }
+
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
@@ -564,6 +569,10 @@ void TAstToGLTraverser::emitTypeConvert(TVisit visit, TIntermUnary* node, const 
 
 bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 {
+    if (!visit_state.enable_visit_unary)
+    {
+        return false;
+    }
 
     TOperator node_operator = node->getOp();
     switch (node_operator)
@@ -700,6 +709,11 @@ bool TAstToGLTraverser::visitUnary(TVisit visit, TIntermUnary* node)
 
 bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 {
+    if (!visit_state.enable_visit_aggregate)
+    {
+        return false;
+    }
+
     TOperator node_operator = node->getOp();
     switch (node_operator)
     {
@@ -895,6 +909,11 @@ bool TAstToGLTraverser::visitAggregate(TVisit visit, TIntermAggregate* node)
 
 bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
+    if (!visit_state.enable_visit_selection)
+    {
+        return false;
+    }
+
     subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitSelection(EvPreVisit, node);
     declareSubScopeSymbol();
@@ -1366,11 +1385,21 @@ void TAstToGLTraverser::constUnionEnd(const TIntermConstantUnion* const_untion)
 
 void TAstToGLTraverser::visitConstantUnion(TIntermConstantUnion* node)
 {
+    if (!visit_state.enable_visit_const_union)
+    {
+        return;
+    }
+
     outputConstantUnion(node, node->getConstArray());
 }
 
 void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 {
+    if (!visit_state.enable_visit_symbol)
+    {
+        return;
+    }
+
     bool is_declared = false;
 
 
@@ -1455,6 +1484,11 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
+    if (!visit_state.enable_visit_loop)
+    {
+        return false;
+    }
+
     subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitLoop(EvPreVisit, node);
     declareSubScopeSymbol();
@@ -1523,6 +1557,11 @@ bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
 
 bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
 {
+    if (!visit_state.enable_visit_branch)
+    {
+        return false;
+    }
+
     TOperator node_operator = node->getFlowOp();
     switch (node->getFlowOp())
     {
@@ -1546,6 +1585,11 @@ bool TAstToGLTraverser::visitBranch(TVisit visit, TIntermBranch* node)
 
 bool TAstToGLTraverser::visitSwitch(TVisit visit, TIntermSwitch* node)
 {
+    if (!visit_state.enable_visit_switch)
+    {
+        return false;
+    }
+
     subscope_tranverser.resetSubScopeMinMaxLine();
     subscope_tranverser.visitSwitch(EvPreVisit, node);
 

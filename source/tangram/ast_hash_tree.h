@@ -98,6 +98,11 @@ private:
 	TString getArraySize(const TType& type);
 	TString generateConstantUnionStr(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
 
+	void generateSymbolInoutMap(int scope_min_line);
+	void getAndUpdateInputHashNodes(CHashNode& func_hash_node);
+	void outputDebugString(const CHashNode& func_hash_node);
+	void updateLastAssignHashmap(const CHashNode& func_hash_node);
+
 	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
 	std::vector<CHashNode> tree_hash_nodes;
 	std::unordered_map<XXH64_hash_t, uint32_t> hash_value_to_idx;
@@ -123,10 +128,13 @@ private:
 
 		struct SNoAssignContext
 		{
-			// 0 input symbol
-			// 1 output symbol
-			// 2 inout symbol
+			// 0 pre scope symbol
+			// 1 post scope symbol
+			// 2 pre-post scope symbol
 			std::unordered_map<XXH32_hash_t, uint32_t>symbol_inout_hashmap;
+
+			bool visit_assigned_symbols = false;
+			bool visit_input_symbols = false;
 		};
 		SNoAssignContext no_assign_context;
 
@@ -177,7 +185,7 @@ private:
 				if (iter != no_assign_context.symbol_inout_hashmap.end())
 				{
 					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_inout_hash];
-					if (symbol_inout_state == 2 || symbol_inout_state == 1) // output symbols
+					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && op_assign_context.visit_output_symbols) // output symbols
 					{
 						for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
 						{
