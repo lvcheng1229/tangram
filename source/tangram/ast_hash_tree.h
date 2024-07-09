@@ -2,6 +2,8 @@
 #include "ast_tranversar_private.h"
 #include "xxhash.h"
 
+static constexpr int global_seed = 42;
+
 // record the symbol name in a seperate structure
 struct CHashNode
 {
@@ -109,50 +111,100 @@ private:
 
 		// iterate linker objects
 		bool is_iterate_linker_objects = false;
-
 		bool is_second_level_function = false;
 
-		bool op_assign_visit_output_symbols = false;
-		bool op_assign_visit_input_symbols = false;
+		struct SOpAssignContext
+		{
+			bool visit_output_symbols = false;
+			bool visit_input_symbols = false;
+		};
+		SOpAssignContext op_assign_context;
+
+
+		struct SNoAssignContext
+		{
+			// 0 input symbol
+			// 1 output symbol
+			// 2 inout symbol
+			std::unordered_map<XXH32_hash_t, uint32_t>symbol_inout_hashmap;
+		};
+		SNoAssignContext no_assign_context;
 
 		inline void scopeReset()
 		{
+			no_assign_context.symbol_inout_hashmap.clear();
 			output_hash_value.clear();
 			input_hash_value.clear();
 		}
 
-		inline void addOpAssignUniqueHashValue(XXH64_hash_t hash)
+		inline void addUniqueHashValue(XXH64_hash_t hash, const TString& symbol_name)
 		{
-			if (op_assign_visit_input_symbols)
+			// op assign scope
 			{
-				for (uint32_t idx = 0; idx < input_hash_value.size(); idx++)
+				if (op_assign_context.visit_input_symbols)
 				{
-					if (input_hash_value[idx] == hash)
+					for (uint32_t idx = 0; idx < input_hash_value.size(); idx++)
 					{
-						return;
+						if (input_hash_value[idx] == hash)
+						{
+							return;
+						}
 					}
+
+					input_hash_value.push_back(hash);
 				}
 
-				input_hash_value.push_back(hash);
+				if (op_assign_context.visit_output_symbols)
+				{
+					assert_t(op_assign_context.visit_input_symbols == false);
+					for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
+					{
+						if (output_hash_value[idx] == hash)
+						{
+							return;
+						}
+					}
+
+					output_hash_value.push_back(hash);
+				}
 			}
 
-			if (op_assign_visit_output_symbols)
+			// non-assign scope
+			if ((!op_assign_context.visit_input_symbols) && (!op_assign_context.visit_output_symbols) && (no_assign_context.symbol_inout_hashmap.size() != 0))
 			{
-				assert_t(op_assign_visit_input_symbols == false);
-				for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
+				XXH32_hash_t symbol_name_inout_hash = XXH32(symbol_name.c_str(), symbol_name.length(), global_seed);
+				auto iter = no_assign_context.symbol_inout_hashmap.find(symbol_name_inout_hash);
+				if (iter != no_assign_context.symbol_inout_hashmap.end())
 				{
-					if (output_hash_value[idx] == hash)
+					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_inout_hash];
+					if (symbol_inout_state == 2 || symbol_inout_state == 1) // output symbols
 					{
-						return;
+						for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
+						{
+							if (output_hash_value[idx] == hash)
+							{
+								return;
+							}
+						}
+						output_hash_value.push_back(hash);
+					}
+					else if (symbol_inout_state == 2 || symbol_inout_state == 0) // input symbols
+					{
+						for (uint32_t idx = 0; idx < input_hash_value.size(); idx++)
+						{
+							if (input_hash_value[idx] == hash)
+							{
+								return;
+							}
+						}
+						input_hash_value.push_back(hash);
 					}
 				}
-
-				output_hash_value.push_back(hash);
 			}
 		}
 
-		inline std::vector<XXH64_hash_t>& getOpAssignOutputHashValues() { return output_hash_value; }
-		inline std::vector<XXH64_hash_t>& getOpAssignInputHashValues() { return input_hash_value; }
+		inline std::vector<XXH64_hash_t>& getOutputHashValues() { return output_hash_value; }
+		inline std::vector<XXH64_hash_t>& getInputHashValues() { return input_hash_value; }
 
 	private:
 		// input symbol hash value and output symbol hash value
