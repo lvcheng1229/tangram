@@ -169,7 +169,7 @@ public:
         bool enable_visit_branch = true;
         bool enable_visit_switch = true;
 
-        inline void DisableAllVisitState()
+        inline void DisableAllVisitState() // disable all visit for debug traverser
         {
             enable_visit_binary = false;
             enable_visit_unary = false;
@@ -204,12 +204,12 @@ public:
     virtual bool visitBinary(TVisit, TIntermBinary* node);
     virtual bool visitUnary(TVisit, TIntermUnary* node);
     virtual bool visitAggregate(TVisit, TIntermAggregate* node);
-    virtual bool visitSelection(TVisit, TIntermSelection* node);
+    virtual bool visitSelection(TVisit, TIntermSelection* node); // high-level controll
     virtual void visitConstantUnion(TIntermConstantUnion* node);
     virtual void visitSymbol(TIntermSymbol* node);
-    virtual bool visitLoop(TVisit, TIntermLoop* node);
+    virtual bool visitLoop(TVisit, TIntermLoop* node); // high-level controll
     virtual bool visitBranch(TVisit, TIntermBranch* node);
-    virtual bool visitSwitch(TVisit, TIntermSwitch* node);
+    virtual bool visitSwitch(TVisit, TIntermSwitch* node); // high-level controll
 
     inline void appendDebugString(const TString& debug_str) { code_buffer.append(debug_str); }
 

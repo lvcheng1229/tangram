@@ -428,80 +428,126 @@ bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 	return true;
 }
 
+XXH64_hash_t CASTHashTreeBuilder::generateSelectionHashValue(TString& hash_string, TIntermSelection* node)
+{
+	bool is_ternnary = false;
+	TIntermNode* true_block = node->getTrueBlock();
+	TIntermNode* false_block = node->getFalseBlock();
+
+	int operator_num = 0;
+	if (true_block != nullptr)
+	{
+		operator_num++;
+	}
+
+	if (false_block != nullptr)
+	{
+		operator_num++;
+	}
+
+	hash_string.append(std::to_string(operator_num).c_str());
+	hash_string.append(std::string("_Selection_"));
+
+	if ((true_block != nullptr) && (false_block != nullptr))
+	{
+		int true_block_line = true_block->getLoc().line;
+		int false_block_line = false_block->getLoc().line;
+		if (abs(true_block_line - false_block_line) <= 1)
+		{
+			is_ternnary = true;
+		}
+	}
+
+	if (is_ternnary)
+	{
+		hash_string.append(std::string("Ternnary_"));
+	}
+	else
+	{
+		hash_string.append(std::string("If_"));
+	}
+
+	if (false_block)
+	{
+		XXH64_hash_t false_blk_hash = hash_value_stack.back();
+		hash_value_stack.pop_back();
+		hash_string.append(std::to_string(XXH64_hash_t(false_blk_hash)).c_str());
+		hash_string.append(std::string("_"));
+	}
+
+	if (true_block)
+	{
+		XXH64_hash_t true_blk_hash = hash_value_stack.back();
+		hash_value_stack.pop_back();
+		hash_string.append(std::to_string(XXH64_hash_t(true_blk_hash)).c_str());
+		hash_string.append(std::string("_"));
+	}
+
+	XXH64_hash_t cond_blk_hash = hash_value_stack.back();
+	hash_value_stack.pop_back();
+
+	hash_string.append(std::to_string(XXH64_hash_t(cond_blk_hash)).c_str());
+	XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+	return hash_value;
+}
+
 bool CASTHashTreeBuilder::visitSelection(TVisit visit, TIntermSelection* node)
 {
 	if (builder_context.is_second_level_function == false)
 	{
-		assert_t(false);
+		subscope_tranverser.resetSubScopeMinMaxLine();
+		subscope_tranverser.visitSelection(EvPreVisit, node);
+
+#if TANGRAM_DEBUG
+		if (visit == EvPreVisit)
+		{
+			bool ret_result = debug_traverser.visitSelection(EvPreVisit, node);
+			assert_t(ret_result == false);
+		}
+		debug_traverser.visit_state.DisableAllVisitState();
+#endif
+
+		builder_context.is_second_level_function = true;
+
+		// find all of the symbols in the scope
+		builder_context.scopeReset();
+		scope_symbol_traverser.reset();
+		node->getCondition()->traverse(&scope_symbol_traverser);
+		if (node->getTrueBlock()) { node->getTrueBlock()->traverse(&scope_symbol_traverser); }
+		if (node->getFalseBlock()) { node->getFalseBlock()->traverse(&scope_symbol_traverser); }
+
+		int scope_min_line = node->getLoc().line;
+
+		// generate symbol inout map
+		generateSymbolInoutMap(scope_min_line);
+
+		node->getCondition()->traverse(this);
+		if (node->getTrueBlock()) { node->getTrueBlock()->traverse(this); }
+		if (node->getFalseBlock()) { node->getFalseBlock()->traverse(this); }
+
+		builder_context.is_second_level_function = false;
+
+		TString hash_string;
+		XXH64_hash_t node_hash_value = generateSelectionHashValue(hash_string, node);
+		generateHashNode(hash_string, node_hash_value);
 		return false;
 	}
 	else
 	{
 #if TANGRAM_DEBUG
-		debug_traverser.visitSelection(visit, node);
-		increAndDecrePath(visit, node);
+		if (visit == EvPreVisit)
+		{
+			bool ret_result = debug_traverser.visitSelection(visit, node);
+			assert_t(ret_result == false);
+		}
 #endif
 
-		bool is_ternnary = false;
-		TIntermNode* true_block = node->getTrueBlock();
-		TIntermNode* false_block = node->getFalseBlock();
-
-		int operator_num = 0;
-		if (true_block != nullptr)
+		if (visit == EvPostVisit)
 		{
-			operator_num++;
+			TString hash_string;
+			XXH64_hash_t hash_value = generateSelectionHashValue(hash_string, node);
+			hash_value_stack.push_back(hash_value);
 		}
-
-		if (false_block != nullptr)
-		{
-			operator_num++;
-		}
-
-		TString hash_string;
-		hash_string.append(std::to_string(operator_num).c_str());
-		hash_string.append(std::string("_Selection_"));
-
-		if ((true_block != nullptr) && (false_block != nullptr))
-		{
-			int true_block_line = true_block->getLoc().line;
-			int false_block_line = false_block->getLoc().line;
-			if (abs(true_block_line - false_block_line) <= 1)
-			{
-				is_ternnary = true;
-			}
-		}
-
-		if (is_ternnary)
-		{
-			hash_string.append(std::string("Ternnary_"));
-		}
-		else
-		{
-			hash_string.append(std::string("If_"));
-		}
-
-		if (false_block)
-		{
-			XXH64_hash_t false_blk_hash = hash_value_stack.back();
-			hash_value_stack.pop_back();
-			hash_string.append(std::to_string(XXH64_hash_t(false_blk_hash)).c_str());
-			hash_string.append(std::string("_"));
-		}
-
-		if (true_block)
-		{
-			XXH64_hash_t true_blk_hash = hash_value_stack.back();
-			hash_value_stack.pop_back();
-			hash_string.append(std::to_string(XXH64_hash_t(true_blk_hash)).c_str());
-			hash_string.append(std::string("_"));
-		}
-
-		XXH64_hash_t cond_blk_hash = hash_value_stack.back();
-		hash_value_stack.pop_back();
-
-		hash_string.append(std::to_string(XXH64_hash_t(cond_blk_hash)).c_str());
-		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-		hash_value_stack.push_back(hash_value);
 	}
 	
 	return true;
@@ -882,16 +928,6 @@ void CASTHashTreeBuilder::visitConstantUnion(TIntermConstantUnion* node)
 	hash_value_stack.push_back(hash_value);
 }
 
-// symbol hash
-// struct linker object:
-//		struct layout
-//		struct name
-// other linker obecjt
-//		layout
-// symbol hash:
-//		symbol type hash
-//		symbol index hash
-
 void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 {
 #if TANGRAM_DEBUG
@@ -1143,10 +1179,184 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	}
 }
 
-bool CASTHashTreeBuilder::visitLoop(TVisit, TIntermLoop* node)
+XXH64_hash_t CASTHashTreeBuilder::generateLoopHashValue(TString& hash_string, TIntermLoop* node)
 {
+	int operator_num = 0;
+	if (node->getTest())
+	{
+		operator_num++;
+	}
+	
+	if (node->getTerminal())
+	{
+		operator_num++;
+	}
+
+	if (node->getBody())
+	{
+		operator_num++;
+	}
+
+	hash_string.append(std::to_string(operator_num).c_str());
+	hash_string.append(std::string("_Selection_"));
+
+	bool is_do_while = (!node->testFirst());
+
+	if (is_do_while == false)
+	{
+		hash_string.append(std::string("For_"));
+		
+		if (node->getBody())
+		{
+			XXH64_hash_t sub_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			hash_string.append(std::to_string(XXH64_hash_t(sub_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+		}
+
+		if (node->getTerminal())
+		{
+			XXH64_hash_t sub_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			hash_string.append(std::to_string(XXH64_hash_t(sub_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+		}
+
+		if (node->getTest())
+		{
+			XXH64_hash_t sub_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			hash_string.append(std::to_string(XXH64_hash_t(sub_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+		}
+
+		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		return hash_value;
+	}
+	else
+	{
+		hash_string.append(std::string("DoWhile_"));
+
+		if (node->getTest())
+		{
+			XXH64_hash_t sub_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			hash_string.append(std::to_string(XXH64_hash_t(sub_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+		}
+
+		if (node->getBody())
+		{
+			XXH64_hash_t sub_hash_value = hash_value_stack.back();
+			hash_value_stack.pop_back();
+			hash_string.append(std::to_string(XXH64_hash_t(sub_hash_value)).c_str());
+			hash_string.append(std::string("_"));
+		}
+
+		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+		return hash_value;
+	}
+
 	assert_t(false);
+	return XXH64_hash_t();
+}
+
+bool CASTHashTreeBuilder::visitLoop(TVisit visit, TIntermLoop* node)
+{
+	if (builder_context.is_second_level_function == false)
+	{
+		subscope_tranverser.resetSubScopeMinMaxLine();
+		subscope_tranverser.visitLoop(EvPreVisit, node);
+
+#if TANGRAM_DEBUG
+		if (visit == EvPreVisit)
+		{
+			bool ret_result = debug_traverser.visitLoop(EvPreVisit, node);
+			assert_t(ret_result == false);
+		}
+		debug_traverser.visit_state.DisableAllVisitState();
+#endif
+
+		builder_context.is_second_level_function = true;
+
+		bool is_do_while = (!node->testFirst());
+
+		// find all of the symbols in the scope
+		builder_context.scopeReset();
+		scope_symbol_traverser.reset();
+
+		if (is_do_while == false)
+		{
+			if (node->getTest())		{ node->getTest()->traverse(&scope_symbol_traverser); }
+			if (node->getTerminal()) { node->getTerminal()->traverse(&scope_symbol_traverser); };
+			if (node->getBody())	{ node->getBody()->traverse(&scope_symbol_traverser); }
+		}
+		else
+		{
+			if (node->getBody()) { node->getBody()->traverse(&scope_symbol_traverser); }
+			if (node->getTest()) { node->getTest()->traverse(&scope_symbol_traverser); }
+		}
+
+		int scope_min_line = node->getLoc().line;
+
+		// generate symbol inout map
+		generateSymbolInoutMap(scope_min_line);
+
+		if (is_do_while == false)
+		{
+			if (node->getTest()) { node->getTest()->traverse(this); }
+			if (node->getTerminal()) { node->getTerminal()->traverse(this); };
+			if (node->getBody()) { node->getBody()->traverse(this); }
+		}
+		else
+		{
+			if (node->getBody()) { node->getBody()->traverse(this); }
+			if (node->getTest()) { node->getTest()->traverse(this); }
+		}
+
+		builder_context.is_second_level_function = false;
+
+		TString hash_string;
+		XXH64_hash_t node_hash_value = generateLoopHashValue(hash_string, node);
+		generateHashNode(hash_string, node_hash_value);
+		return false;
+	}
+	else
+	{
+#if TANGRAM_DEBUG
+		if (visit == EvPreVisit)
+		{
+			debug_traverser.visitLoop(visit, node);
+		}
+#endif
+		if (visit == EvPostVisit)
+		{
+			TString hash_string;
+			XXH64_hash_t node_hash_value = generateLoopHashValue(hash_string, node);
+			hash_value_stack.push_back(node_hash_value);
+		}
+	}
+	
 	return true;
+}
+
+XXH64_hash_t CASTHashTreeBuilder::generateBranchHashValue(TString& hash_string, TIntermBranch* node)
+{
+	TOperator node_operator = node->getFlowOp();
+	hash_string.reserve(2 + 1 + 1);
+	hash_string.append(std::string("2_"));
+	hash_string.append(std::to_string(uint32_t(node_operator)).c_str());
+	hash_string.append(std::string("_"));
+	if (node->getExpression())
+	{
+		XXH64_hash_t expr_hash_value = hash_value_stack.back();
+		hash_value_stack.pop_back();
+
+		hash_string.append(std::to_string(XXH64_hash_t(expr_hash_value)).c_str());
+	}
+
+	XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+	return hash_value;
 }
 
 bool CASTHashTreeBuilder::visitBranch(TVisit visit, TIntermBranch* node)
@@ -1166,24 +1376,31 @@ bool CASTHashTreeBuilder::visitBranch(TVisit visit, TIntermBranch* node)
 		if (visit == EvPostVisit)
 		{
 			TString hash_string;
-			hash_string.reserve(2 + 1 + 1);
-			hash_string.append(std::string("2_"));
-			hash_string.append(std::to_string(uint32_t(node_operator)).c_str());
-			hash_string.append(std::string("_"));
-			if (node->getExpression())
-			{
-				XXH64_hash_t expr_hash_value = hash_value_stack.back();
-				hash_value_stack.pop_back();
-
-				hash_string.append(std::to_string(XXH64_hash_t(expr_hash_value)).c_str());
-			}
-
-			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+			XXH64_hash_t hash_value = generateBranchHashValue(hash_string, node);
 			hash_value_stack.push_back(hash_value);
 		}
 	}
 	
 	return true;
+}
+
+XXH64_hash_t CASTHashTreeBuilder::generateSwitchHashValue(TString& hash_string)
+{
+	XXH64_hash_t body_hash_value = hash_value_stack.back();
+	hash_value_stack.pop_back();
+
+	XXH64_hash_t condition_hash_value = hash_value_stack.back();
+	hash_value_stack.pop_back();
+	
+	hash_string.reserve(10 + 2 * 8);
+	hash_string.append(std::string("2_Switch"));
+	hash_string.append(std::string("_"));
+	hash_string.append(std::to_string(XXH64_hash_t(condition_hash_value)).c_str());
+	hash_string.append(std::string("_"));
+	hash_string.append(std::to_string(XXH64_hash_t(body_hash_value)).c_str());
+
+	XXH64_hash_t node_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
+	return node_hash_value;
 }
 
 bool CASTHashTreeBuilder::visitSwitch(TVisit visit, TIntermSwitch* node)
@@ -1194,7 +1411,11 @@ bool CASTHashTreeBuilder::visitSwitch(TVisit visit, TIntermSwitch* node)
 		subscope_tranverser.visitSwitch(EvPreVisit, node);
 
 #if TANGRAM_DEBUG
-		debug_traverser.visitSwitch(EvPreVisit, node);
+		if (visit == EvPreVisit)
+		{
+			bool ret_result = debug_traverser.visitSwitch(EvPreVisit, node);
+			assert_t(ret_result == false);
+		}
 		debug_traverser.visit_state.DisableAllVisitState();
 #endif
 
@@ -1215,52 +1436,55 @@ bool CASTHashTreeBuilder::visitSwitch(TVisit visit, TIntermSwitch* node)
 		node->getBody()->traverse(this);
 		builder_context.is_second_level_function = false;
 
-		XXH64_hash_t body_hash_value = hash_value_stack.back();
-		hash_value_stack.pop_back();
-
-		XXH64_hash_t condition_hash_value = hash_value_stack.back();
-		hash_value_stack.pop_back();
-
 		TString hash_string;
-		hash_string.reserve(10 + 2 * 8);
-		hash_string.append(std::string("2_Switch"));
-		hash_string.append(std::string("_"));
-		hash_string.append(std::to_string(XXH64_hash_t(condition_hash_value)).c_str());
-		hash_string.append(std::string("_"));
-		hash_string.append(std::to_string(XXH64_hash_t(body_hash_value)).c_str());
-
-		XXH64_hash_t node_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-
-		CHashNode func_hash_node;
-		func_hash_node.hash_value = node_hash_value;
-#if TANGRAM_DEBUG
-		func_hash_node.debug_string = hash_string;
-#endif
-		// get input hash values
-		getAndUpdateInputHashNodes(func_hash_node);
-
-		{
-			tree_hash_nodes.push_back(func_hash_node);
-			hash_value_to_idx[node_hash_value] = tree_hash_nodes.size() - 1;
-			hash_value_stack.push_back(node_hash_value);
-		}
-
-#if TANGRAM_DEBUG
-		outputDebugString(func_hash_node);
-		debug_traverser.appendDebugString("\n");
-		debug_traverser.visit_state.EnableAllVisitState();
-#endif
-
-		updateLastAssignHashmap(func_hash_node);
+		XXH64_hash_t node_hash_value = generateSwitchHashValue(hash_string);
+		generateHashNode(hash_string, node_hash_value);
 		return false;
 	}
 	else
 	{
-		assert(false);
+#if TANGRAM_DEBUG
+		if (visit == EvPreVisit)
+		{
+			bool ret_result = debug_traverser.visitSwitch(visit, node);
+			assert_t(ret_result == false);
+		}
+#endif
+		if (visit == EvPostVisit)
+		{
+			TString hash_string;
+			XXH64_hash_t hash_value = generateSwitchHashValue(hash_string);
+			hash_value_stack.push_back(hash_value);
+		}
 		return true;
 	}
 	
 	return true;
+}
+
+void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_hash_t node_hash_value)
+{
+	CHashNode func_hash_node;
+	func_hash_node.hash_value = node_hash_value;
+#if TANGRAM_DEBUG
+	func_hash_node.debug_string = hash_string;
+#endif
+	// get input hash values
+	getAndUpdateInputHashNodes(func_hash_node);
+
+	{
+		tree_hash_nodes.push_back(func_hash_node);
+		hash_value_to_idx[node_hash_value] = tree_hash_nodes.size() - 1;
+		hash_value_stack.push_back(node_hash_value);
+	}
+
+#if TANGRAM_DEBUG
+	outputDebugString(func_hash_node);
+	debug_traverser.appendDebugString("\n");
+	debug_traverser.visit_state.EnableAllVisitState();
+#endif
+
+	updateLastAssignHashmap(func_hash_node);
 }
 
 void CASTHashTreeBuilder::generateSymbolInoutMap(int scope_min_line)
@@ -1326,14 +1550,14 @@ void CASTHashTreeBuilder::getAndUpdateInputHashNodes(CHashNode& func_hash_node)
 void CASTHashTreeBuilder::outputDebugString(const CHashNode& func_hash_node)
 {
 #if TANGRAM_DEBUG
-	debug_traverser.appendDebugString("[CHashStr:");
+	debug_traverser.appendDebugString("\t[CHashStr:");
 	debug_traverser.appendDebugString(func_hash_node.debug_string);
 	debug_traverser.appendDebugString("]");
 
 	int input_idx = 0;
 	for (auto& in_symbol_last_assign_index : func_hash_node.input_hash_nodes)
 	{
-		debug_traverser.appendDebugString("[InHashStr:");
+		debug_traverser.appendDebugString("\t[InHashStr:");
 
 		CHashNode& hash_node = tree_hash_nodes[in_symbol_last_assign_index];
 		hash_node.debug_string;

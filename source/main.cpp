@@ -380,7 +380,7 @@ void TestSingleASTToHashTree()
 	finalizeAstToHashTree();
 }
 
-void TestGlobalASTToGL()
+void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 {
 	init_ast_to_glsl();
 
@@ -426,7 +426,14 @@ void TestGlobalASTToGL()
 			std::vector<char> out_buffer;
 			out_buffer.resize(Code);
 			int out_size;
-			bool result = ast_to_glsl((const char* const*)(shader_code_decompressed_data.data()), &code_size, out_buffer.data(), out_size);
+			if (!is_test_hash_tree_gen)
+			{
+				bool result = ast_to_glsl((const char* const*)(shader_code_decompressed_data.data()), &code_size, out_buffer.data(), out_size);
+			}
+			else
+			{
+				bool result = ast_to_hash_treel((const char* const*)(shader_code_decompressed_data.data()), &code_size);
+			}
 		}
 	}
 
@@ -441,14 +448,14 @@ int main()
 	//}
 	
 	
-	{
-		//TestSingleAstToGL();
-		TestSingleASTToHashTree();
-		return 0;
-	}
+	//{
+	//	//TestSingleAstToGL();
+	//	TestSingleASTToHashTree();
+	//	return 0;
+	//}
 
 	{
-		TestGlobalASTToGL();
+		TestGlobalASTToGL(true);
 		return 0;
 	}
 

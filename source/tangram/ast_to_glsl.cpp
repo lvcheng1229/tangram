@@ -492,7 +492,7 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
             parser_context.is_vector_swizzle = false;
         } );
     
-        //
+    //
     // binary operations
     //
 
@@ -1499,7 +1499,7 @@ bool TAstToGLTraverser::visitLoop(TVisit, TIntermLoop* node)
     {
         loop_header_tranverser.resetTraverser();
         loop_header_tranverser.visitLoop(EvPreVisit, node);
-        for (auto& iter : loop_header_tranverser.getLoopHeaderSymbols())
+        for (auto& iter : loop_header_tranverser.getLoopHeaderSymbols()) // get symbols declared in the loop header
         {
             TIntermSymbol* symbol_node = iter.second;
             declared_symbols_id.insert(symbol_node->getId());
