@@ -154,15 +154,30 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	{
 	case EOpAssign:
 	{
-		if (builder_context.is_second_level_function == false)
+		if (builder_context.is_second_level_function == true)
 		{
 #if TANGRAM_DEBUG
-			debug_traverser.visitBinary(EvPreVisit, node);
-			debug_traverser.incrementDepth(node);
+			debug_traverser.visitBinary(visit, node);
+			increAndDecrePath(visit, node);
 #endif
 
 			if (visit == EvPreVisit)
 			{
+				builder_context.no_assign_context.visit_assigned_symbols = true;
+			}
+			else if (visit == EvInVisit)
+			{
+				builder_context.no_assign_context.visit_assigned_symbols = false;
+			}
+		}
+		else if (builder_context.is_second_level_function == false)
+		{
+			if (visit == EvPreVisit)
+			{
+#if TANGRAM_DEBUG
+				debug_traverser.visitBinary(EvPreVisit, node);
+				debug_traverser.incrementDepth(node);
+#endif
 				// find all of the symbols in the scope
 				builder_context.scopeReset();
 				scope_symbol_traverser.reset();
@@ -173,10 +188,10 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				if (node->getLeft())
 				{
 					builder_context.op_assign_context.visit_output_symbols = true;
-					builder_context.no_assign_context.visit_assigned_symbols = true;
+					
 					node->getLeft()->traverse(this);
 					builder_context.op_assign_context.visit_output_symbols = false;
-					builder_context.no_assign_context.visit_assigned_symbols = false;
+					
 				}
 
 #if TANGRAM_DEBUG
@@ -220,6 +235,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 #if TANGRAM_DEBUG
 				outputDebugString(func_hash_node);
+				debug_traverser.decrementDepth();
 				debug_traverser.visitBinary(EvPostVisit, node);
 #endif
 				updateLastAssignHashmap(func_hash_node);
@@ -265,9 +281,11 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 			hash_value_stack.push_back(index_direct_struct_hash);
 #if TANGRAM_DEBUG
 			debug_traverser.visitBinary(EvPreVisit, node);
+			if (visit == EvPreVisit) { debug_traverser.incrementDepth(node); }
 			if (node->getLeft()) { node->getLeft()->traverse(&debug_traverser); }
 			debug_traverser.visitBinary(EvInVisit, node);
 			if (node->getRight()) { node->getRight()->traverse(&debug_traverser); }
+			if (visit == EvPostVisit) { debug_traverser.decrementDepth(); }
 			debug_traverser.visitBinary(EvPostVisit, node);
 #endif
 			return false;
@@ -278,6 +296,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 	{
 #if TANGRAM_DEBUG
 		debug_traverser.visitBinary(visit, node);
+		increAndDecrePath(visit, node);
 #endif
 		if (visit == EvPostVisit)
 		{
@@ -305,8 +324,7 @@ bool CASTHashTreeBuilder::visitUnary(TVisit visit, TIntermUnary* node)
 {
 #if TANGRAM_DEBUG
 	debug_traverser.visitUnary(visit, node);
-	if (visit == EvPreVisit) { debug_traverser.incrementDepth(node); }
-	if (visit == EvPostVisit) { debug_traverser.decrementDepth(); }
+	increAndDecrePath(visit, node);
 #endif
 
 	TOperator node_operator = node->getOp();
@@ -360,9 +378,9 @@ bool CASTHashTreeBuilder::visitUnary(TVisit visit, TIntermUnary* node)
 bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 {
 #if TANGRAM_DEBUG
+	
 	debug_traverser.visitAggregate(visit, node);
-	if (visit == EvPreVisit) { debug_traverser.incrementDepth(node); }
-	if (visit == EvPostVisit) { debug_traverser.decrementDepth(); }
+	increAndDecrePath(visit, node);
 #endif
 	TOperator node_operator = node->getOp();
 	switch (node_operator)
@@ -410,7 +428,7 @@ bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 	return true;
 }
 
-bool CASTHashTreeBuilder::visitSelection(TVisit, TIntermSelection* node)
+bool CASTHashTreeBuilder::visitSelection(TVisit visit, TIntermSelection* node)
 {
 	if (builder_context.is_second_level_function == false)
 	{
@@ -419,6 +437,11 @@ bool CASTHashTreeBuilder::visitSelection(TVisit, TIntermSelection* node)
 	}
 	else
 	{
+#if TANGRAM_DEBUG
+		debug_traverser.visitSelection(visit, node);
+		increAndDecrePath(visit, node);
+#endif
+
 		bool is_ternnary = false;
 		TIntermNode* true_block = node->getTrueBlock();
 		TIntermNode* false_block = node->getFalseBlock();
@@ -1136,6 +1159,10 @@ bool CASTHashTreeBuilder::visitBranch(TVisit visit, TIntermBranch* node)
 	}
 	else
 	{
+#if TANGRAM_DEBUG
+		debug_traverser.visitBranch(visit, node);
+		increAndDecrePath(visit, node);
+#endif
 		if (visit == EvPostVisit)
 		{
 			TString hash_string;
@@ -1299,7 +1326,6 @@ void CASTHashTreeBuilder::getAndUpdateInputHashNodes(CHashNode& func_hash_node)
 void CASTHashTreeBuilder::outputDebugString(const CHashNode& func_hash_node)
 {
 #if TANGRAM_DEBUG
-	debug_traverser.decrementDepth();
 	debug_traverser.appendDebugString("[CHashStr:");
 	debug_traverser.appendDebugString(func_hash_node.debug_string);
 	debug_traverser.appendDebugString("]");
@@ -1323,6 +1349,19 @@ void CASTHashTreeBuilder::updateLastAssignHashmap(const CHashNode& func_hash_nod
 	for (auto& out_symbol_hash : output_hash_values)
 	{
 		builder_context.symbol_last_hashnode_map[out_symbol_hash] = func_hash_node.hash_value;
+	}
+}
+
+void CASTHashTreeBuilder::increAndDecrePath(TVisit visit, TIntermNode* current)
+{
+	if (visit == EvPreVisit) 
+	{ 
+		debug_traverser.incrementDepth(current);
+	}
+
+	if (visit == EvPostVisit) 
+	{ 
+		debug_traverser.decrementDepth();
 	}
 }
 

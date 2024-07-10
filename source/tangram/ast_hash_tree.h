@@ -69,7 +69,9 @@ public:
 	CASTHashTreeBuilder() :
 		subscope_tranverser(&declared_symbols_id),
 		TIntermTraverser(true, true, true, false) //
-	{ }
+	{ 
+		subscope_tranverser.enableVisitAllSymbols();
+	}
 	
 	void preTranverse(TIntermediate* intermediate);
 
@@ -102,6 +104,8 @@ private:
 	void getAndUpdateInputHashNodes(CHashNode& func_hash_node);
 	void outputDebugString(const CHashNode& func_hash_node);
 	void updateLastAssignHashmap(const CHashNode& func_hash_node);
+
+	void increAndDecrePath(TVisit visit, TIntermNode* current);
 
 	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
 	std::vector<CHashNode> tree_hash_nodes;
@@ -185,7 +189,7 @@ private:
 				if (iter != no_assign_context.symbol_inout_hashmap.end())
 				{
 					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_inout_hash];
-					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && op_assign_context.visit_output_symbols) // output symbols
+					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && no_assign_context.visit_assigned_symbols) // output symbols
 					{
 						for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
 						{

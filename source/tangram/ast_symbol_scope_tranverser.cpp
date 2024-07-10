@@ -98,7 +98,7 @@ void TSymbolScopeTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 {
-	updateMinMaxLine(node);
+	updateMaxLine(node);
 
 	TOperator node_operator = node->getOp();
 	switch (node_operator)
@@ -121,7 +121,13 @@ bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 			{
 				long long symbol_id = symbol_node->getId();
 				auto iter = declared_symbols_id->find(symbol_id);
-				if (iter == declared_symbols_id->end())
+				
+				//if (iter == declared_symbols_id->end())
+				//{
+				//	subscope_min_line = (std::min)(subscope_min_line, node->getLoc().line);
+				//}
+
+				if ((iter == declared_symbols_id->end()) || (only_record_undeclared_symbol == false))
 				{
 					if (subscope_symbols.find(symbol_id) == subscope_symbols.end())
 					{
@@ -138,7 +144,7 @@ bool TSubScopeTraverser::visitBinary(TVisit visit, TIntermBinary* node)
 
 bool TSubScopeTraverser::visitSelection(TVisit, TIntermSelection* node)
 {
-	updateMinMaxLine(node);
+	updateMaxLine(node);
 	incrementDepth(node);
 	node->getCondition()->traverse(this);
 	if (node->getTrueBlock()){node->getTrueBlock()->traverse(this);}
@@ -148,11 +154,17 @@ bool TSubScopeTraverser::visitSelection(TVisit, TIntermSelection* node)
 }
 void TSubScopeTraverser::visitSymbol(TIntermSymbol* node)
 {
-	updateMinMaxLine(node);
+	updateMaxLine(node);
 
 	long long symbol_id = node->getId();
 	auto iter = declared_symbols_id->find(symbol_id);
-	if (iter == declared_symbols_id->end())
+
+	//if (iter == declared_symbols_id->end())
+	//{
+	//	subscope_min_line = (std::min)(subscope_min_line, node->getLoc().line);
+	//}
+
+	if ((iter == declared_symbols_id->end()) || (only_record_undeclared_symbol == false))
 	{
 		if (subscope_symbols.find(symbol_id) == subscope_symbols.end())
 		{
@@ -163,7 +175,7 @@ void TSubScopeTraverser::visitSymbol(TIntermSymbol* node)
 
 bool TSubScopeTraverser::visitLoop(TVisit, TIntermLoop* node)
 {
-	updateMinMaxLine(node);
+	updateMaxLine(node);
 
 	if (node->getUnroll()) { assert_t(false); }
 	if (node->getLoopDependency()) { assert_t(false); }
@@ -180,7 +192,7 @@ bool TSubScopeTraverser::visitLoop(TVisit, TIntermLoop* node)
 
 bool TSubScopeTraverser::visitSwitch(TVisit, TIntermSwitch* node)
 {
-	updateMinMaxLine(node);
+	updateMaxLine(node);
 
 	incrementDepth(node);
 	node->getCondition()->traverse(this);
