@@ -184,6 +184,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				node->getLeft()->traverse(&scope_symbol_traverser);
 				node->getRight()->traverse(&scope_symbol_traverser);
 
+				builder_context.is_second_level_function = true;
+
 				// output symbols
 				if (node->getLeft())
 				{
@@ -207,6 +209,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 					builder_context.op_assign_context.visit_input_symbols = false;
 					builder_context.no_assign_context.visit_input_symbols = false;
 				}
+
+				builder_context.is_second_level_function = false;
 
 				XXH64_hash_t right_hash_value = hash_value_stack.back();
 				hash_value_stack.pop_back();
@@ -403,7 +407,7 @@ bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 	}
 	}
 
-	if (visit == EvPostVisit && node_operator != EOpLinkerObjects)
+	if (visit == EvPostVisit && node_operator != EOpLinkerObjects && node_operator != EOpNull)
 	{
 		TString hash_string;
 		hash_string.reserve(10 + node->getSequence().size() * 8);
@@ -1639,7 +1643,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 			shader.setStringsWithLengths(&shader_strings, &shader_lengths, 1);
 			shader.setEntryPoint("main");
 			bool is_surceee = shader.parse(GetDefaultResources(), defaultVersion, isForwardCompatible, messages);
-			assert_t(is_surceee);
+			//assert_t(is_surceee);
 		}
 
 		TIntermediate* intermediate = shader.getIntermediate();

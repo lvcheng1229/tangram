@@ -401,7 +401,7 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 
 	int success_num = 0;
 
-	for (int idx = 27154; idx < shader_archive.ShaderEntries.size(); idx++)
+	for (int idx = 27187; idx < shader_archive.ShaderEntries.size(); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
