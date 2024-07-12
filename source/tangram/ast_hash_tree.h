@@ -9,16 +9,10 @@ struct CHashNode
 {
 	CHashNode() :
 		weight(1.0),
-		length(1.0),
-		count(1.0),
 		hash_value(0),
 		combined_hash_value(0) {}
 
 	float weight;
-
-	// weight = length * count
-	float length;
-	float count;
 
 #if TANGRAM_DEBUG
 	TString debug_string;
@@ -27,16 +21,12 @@ struct CHashNode
 	XXH64_hash_t hash_value;
 	XXH64_hash_t combined_hash_value; // combined with in out hash value
 
+	uint32_t idx_in_vtx_arr;
+
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	//std::vector<uint64_t> inout_hash_nodes; //inout hash node indices
 	//std::vector<uint64_t> out_hash_nodes;  //output hash node indices
 	std::set<uint64_t> out_hash_nodes;
-};
-
-class CGlobalHashNode
-{
-public:
-	std::vector<CHashNode> global_hash_nodes;
 };
 
 class CScopeSymbolNameTraverser : public TIntermTraverser
@@ -54,9 +44,6 @@ private:
 	std::unordered_map<XXH32_hash_t, uint32_t>symbol_index;
 };
 
-//  for each ast
-//		generate tree hash nodes
-//		combine it to graph
 
 //symbol hash vec3_symbolname
 
@@ -75,15 +62,7 @@ public:
 	
 	void preTranverse(TIntermediate* intermediate);
 
-	//对于所有的赋值表达式，搜索其所有的输入参数，按出现顺序排序，记录in inout和out
-	//对于main函数,加个define来转换
-	
-	// hash layout:
-	// hash operator
-	// hash left node
-	// hash right node
 	virtual bool visitBinary(TVisit, TIntermBinary* node);
-
 	virtual bool visitUnary(TVisit, TIntermUnary* node);
 	virtual bool visitAggregate(TVisit, TIntermAggregate* node);
 	virtual bool visitSelection(TVisit, TIntermSelection* node);
@@ -92,6 +71,8 @@ public:
 	virtual bool visitLoop(TVisit, TIntermLoop* node);
 	virtual bool visitBranch(TVisit, TIntermBranch* node);
 	virtual bool visitSwitch(TVisit, TIntermSwitch* node);
+
+	std::vector<CHashNode>& getTreeHashNodes() { return tree_hash_nodes; };
 
 private:
 	bool constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type, TString& inoutStr);
@@ -113,7 +94,7 @@ private:
 
 	void increAndDecrePath(TVisit visit, TIntermNode* current);
 
-	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
+	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true, bool getLayoutLocation = true);
 	std::vector<CHashNode> tree_hash_nodes;
 	std::unordered_map<XXH64_hash_t, uint32_t> hash_value_to_idx;
 
@@ -232,6 +213,7 @@ private:
 
 	CBuilderContext builder_context;
 
+	int hash_value_stack_max_depth = 0;
 	std::vector<XXH64_hash_t> hash_value_stack;
 
 	std::set<long long> declared_symbols_id;

@@ -4,4 +4,4 @@
 #include "MachineIndependent/localintermediate.h"
 #include "Include/InfoSink.h"
 
-#define TANGRAM_DEBUG 1
+#include "common.h"

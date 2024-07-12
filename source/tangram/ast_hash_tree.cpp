@@ -1,5 +1,5 @@
 #include "ast_hash_tree.h"
-
+#include "shader_network.h"
 
 
 // find and store the symbols in the scope in order
@@ -15,7 +15,7 @@ void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 	}
 }
 
-TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
+TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision, bool getLayoutLocation)
 {
 	TString type_string;
 
@@ -34,7 +34,7 @@ TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, 
 		if (qualifier.hasLayout())
 		{
 			appendStr("layout(");
-			if (qualifier.hasAnyLocation())
+			if (qualifier.hasAnyLocation() && getLayoutLocation)
 			{
 				appendStr(" location=");
 				appendUint(qualifier.layoutLocation);
@@ -181,6 +181,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				// find all of the symbols in the scope
 				builder_context.scopeReset();
 				scope_symbol_traverser.reset();
+				hash_value_stack_max_depth = 0;
+
 				node->getLeft()->traverse(&scope_symbol_traverser);
 				node->getRight()->traverse(&scope_symbol_traverser);
 
@@ -225,6 +227,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 				CHashNode func_hash_node;
 				func_hash_node.hash_value = hash_value;
+				func_hash_node.weight = hash_value_stack_max_depth;
 #if TANGRAM_DEBUG
 				func_hash_node.debug_string = hash_string;
 #endif
@@ -239,6 +242,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 #if TANGRAM_DEBUG
 				outputDebugString(func_hash_node);
+				const std::string max_depth_str = std::string("[Max Depth:") + std::to_string(hash_value_stack_max_depth) + std::string("]");
+				debug_traverser.appendDebugString(max_depth_str.c_str());
 				debug_traverser.decrementDepth();
 				debug_traverser.visitBinary(EvPostVisit, node);
 #endif
@@ -283,6 +288,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 			XXH64_hash_t index_direct_struct_hash = XXH64(hash_string.data(), hash_string.size(), global_seed);
 			hash_value_stack.push_back(index_direct_struct_hash);
+			hash_value_stack_max_depth += 3;
 #if TANGRAM_DEBUG
 			debug_traverser.visitBinary(EvPreVisit, node);
 			if (visit == EvPreVisit) { debug_traverser.incrementDepth(node); }
@@ -317,6 +323,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 			XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 
 			hash_value_stack.push_back(hash_value);
+			hash_value_stack_max_depth++;
 		}
 	}
 	};
@@ -374,6 +381,7 @@ bool CASTHashTreeBuilder::visitUnary(TVisit visit, TIntermUnary* node)
 
 		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 		hash_value_stack.push_back(hash_value);
+		hash_value_stack_max_depth++;
 	}
 
 	return true;
@@ -427,6 +435,7 @@ bool CASTHashTreeBuilder::visitAggregate(TVisit visit, TIntermAggregate* node)
 
 		XXH64_hash_t hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
 		hash_value_stack.push_back(hash_value);
+		hash_value_stack_max_depth++;
 	}
 
 	return true;
@@ -516,6 +525,7 @@ bool CASTHashTreeBuilder::visitSelection(TVisit visit, TIntermSelection* node)
 		// find all of the symbols in the scope
 		builder_context.scopeReset();
 		scope_symbol_traverser.reset();
+		hash_value_stack_max_depth = 0;
 		node->getCondition()->traverse(&scope_symbol_traverser);
 		if (node->getTrueBlock()) { node->getTrueBlock()->traverse(&scope_symbol_traverser); }
 		if (node->getFalseBlock()) { node->getFalseBlock()->traverse(&scope_symbol_traverser); }
@@ -551,6 +561,7 @@ bool CASTHashTreeBuilder::visitSelection(TVisit visit, TIntermSelection* node)
 			TString hash_string;
 			XXH64_hash_t hash_value = generateSelectionHashValue(hash_string, node);
 			hash_value_stack.push_back(hash_value);
+			hash_value_stack_max_depth++;
 		}
 	}
 	
@@ -964,6 +975,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	{
 		XXH64_hash_t hash_value = XXH64(symbol_name.data(), symbol_name.size(), global_seed);
 		hash_value_stack.push_back(hash_value);
+		hash_value_stack_max_depth++;
 	}
 
 	if (is_declared == false)
@@ -1121,6 +1133,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	{
 		const TType& type = node->getType();
 		TString hash_string = getTypeText(type);
+		hash_value_stack_max_depth++;
 
 		if (type.getBasicType() == EbtSampler)
 		{
@@ -1130,12 +1143,14 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
 			builder_context.addUniqueHashValue(out_scope_hash, node->getName());
 		}
-		else if (type.getQualifier().hasLayout())
+		else if (type.getQualifier().hasLayout()) // layout( location=1)in highp vec4 -> layout() in highp vec4
 		{
-			XXH64_hash_t in_scope_hash_value = XXH64(hash_string.data(), hash_string.size(), global_seed);
-			hash_value_stack.push_back(in_scope_hash_value);
-			const XXH64_hash_t out_scope_hash = in_scope_hash_value;
+			XXH64_hash_t out_scope_hash = XXH64(hash_string.data(), hash_string.size(), global_seed);
 			builder_context.addUniqueHashValue(out_scope_hash, node->getName());
+
+			TString hash_string_wihtout_location = getTypeText(type, true, true, true, false);
+			XXH64_hash_t in_scope_hash_value = XXH64(hash_string_wihtout_location.data(), hash_string_wihtout_location.size(), global_seed);
+			hash_value_stack.push_back(in_scope_hash_value);
 		}
 		else if (type.getQualifier().isUniform())
 		{
@@ -1338,6 +1353,7 @@ bool CASTHashTreeBuilder::visitLoop(TVisit visit, TIntermLoop* node)
 			TString hash_string;
 			XXH64_hash_t node_hash_value = generateLoopHashValue(hash_string, node);
 			hash_value_stack.push_back(node_hash_value);
+			hash_value_stack_max_depth++;
 		}
 	}
 	
@@ -1382,6 +1398,7 @@ bool CASTHashTreeBuilder::visitBranch(TVisit visit, TIntermBranch* node)
 			TString hash_string;
 			XXH64_hash_t hash_value = generateBranchHashValue(hash_string, node);
 			hash_value_stack.push_back(hash_value);
+			hash_value_stack_max_depth++;
 		}
 	}
 	
@@ -1459,6 +1476,7 @@ bool CASTHashTreeBuilder::visitSwitch(TVisit visit, TIntermSwitch* node)
 			TString hash_string;
 			XXH64_hash_t hash_value = generateSwitchHashValue(hash_string);
 			hash_value_stack.push_back(hash_value);
+			hash_value_stack_max_depth++;
 		}
 		return true;
 	}
@@ -1470,6 +1488,7 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 {
 	CHashNode func_hash_node;
 	func_hash_node.hash_value = node_hash_value;
+	func_hash_node.weight = hash_value_stack_max_depth;
 #if TANGRAM_DEBUG
 	func_hash_node.debug_string = hash_string;
 #endif
@@ -1484,6 +1503,8 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 
 #if TANGRAM_DEBUG
 	outputDebugString(func_hash_node);
+	const std::string max_depth_str = std::string("[Max Depth:") + std::to_string(hash_value_stack_max_depth) + std::string("]");
+	debug_traverser.appendDebugString(max_depth_str.c_str());
 	debug_traverser.appendDebugString("\n");
 	debug_traverser.visit_state.EnableAllVisitState();
 #endif
@@ -1681,8 +1702,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		CASTHashTreeBuilder hash_tree_builder;
 		hash_tree_builder.preTranverse(intermediate);
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
-
-
+		addAstHashTree(hash_tree_builder.getTreeHashNodes());
 	}
 	return false;
 }
