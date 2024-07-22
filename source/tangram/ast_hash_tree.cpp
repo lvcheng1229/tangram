@@ -1704,7 +1704,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
 		addAstHashTree(hash_tree_builder.getTreeHashNodes());
 	}
-	return false;
+ 	return false;
 }
 
 

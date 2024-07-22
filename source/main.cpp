@@ -6,7 +6,7 @@
 #include "zstd/zstd.h"
 #include "zstd/zdict.h"
 #include "tangram/tangram.h"
-
+#include "tangram/shader_network.h"
 #include "tangram/glslang_headers.h"
 
 #define TEXT(text) TEXT_I(text)
@@ -383,6 +383,7 @@ void TestSingleASTToHashTree()
 void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 {
 	init_ast_to_glsl();
+	initShaderNetwork();
 
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 
@@ -444,7 +445,7 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 
 	
 	
-
+	finalizeShaderNetwork();
 	finish_ast_to_glsl();
 };
 
