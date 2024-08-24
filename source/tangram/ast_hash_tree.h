@@ -21,7 +21,7 @@ struct CHashNode
 	XXH64_hash_t hash_value;
 	XXH64_hash_t combined_hash_value; // combined with in out hash value
 
-	uint32_t idx_in_vtx_arr; // index in global network vertex array
+	size_t graph_vtx_idx; 
 
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	//std::vector<uint64_t> inout_hash_nodes; //inout hash node indices

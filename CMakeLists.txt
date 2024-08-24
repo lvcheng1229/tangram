@@ -15,7 +15,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
 #zstd lib
 
-# vf3 lib
+# boost graph
+
+
 
 #glslang lib
 link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/glslangd.lib)
