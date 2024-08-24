@@ -2,9 +2,9 @@
 #include "shader_network.h"
 #include "graphviz.h"
 
-static CShaderNetwork* global_shader_network = nullptr;
+static CGlobalShaderNetwork* global_shader_network = nullptr;
 
-void CShaderNetwork::addAstHashTree(std::vector<CHashNode>& hash_tree)
+void CGlobalShaderNetwork::addAstHashTree(std::vector<CHashNode>& hash_tree)
 {
 	if (global_shader_network->getShaderVertexNum() == 0)
 	{
@@ -157,6 +157,37 @@ void CShaderNetwork::addAstHashTree(std::vector<CHashNode>& hash_tree)
 		// todo:
 
 		// 5.add the vertices into the global network (add the new vertex that is not in the subnet work group)
+		//for (auto& iter : hash_tree)
+		//{
+		//	iter.idx_in_vtx_arr = addUniqueVertex(SShaderVertex{ iter.weight,1,iter.weight ,0xFFFFFFFF,0xFFFFFFFF ,0xFFFFFFFF ,iter.hash_value,iter.debug_string.c_str() });
+		//}
+
+
+		// 首先要确定加入哪个图
+		//	1.根据每个节点的权重排序
+		//	2.从权重最高的节点开始遍历
+		//		根据HashValue，查找该HashValue的所有UniqueIDs
+		//		对所有UniqueIDs的图，判断两张图的相似性
+		// 
+		// 
+		// 然后合并两个图
+		//	从根小图节点（input node）开始DFS遍历（正向遍历！！）
+		//	如果该小图中的节点在大图中不存在，则新加一个节点，并新加一条（出边），连接到新加的节点
+		//  如果该小图中的节点在大图中存在，判断该节点的（出边）是否存在（即该节点的前一个节点是否是本次迭代中新加的），不存在，则添加一条边
+
+		//
+		//if (aa)
+		//{
+		//	case a -> b - a ->c
+		//	different hash node in the graph has the same hash value
+		//}
+		//else
+		{
+			// just merge them together
+		}
+
+		//生成变量名，参考此篇算法
+		//https://www.zhihu.com/question/32098665/answer/54625344
 
 #if TANGRAM_VIS_GRAPH
 		CGraphVis graph_vis;
@@ -187,7 +218,7 @@ void CShaderNetwork::addAstHashTree(std::vector<CHashNode>& hash_tree)
 }
 
 
-void CShaderNetwork::mergeSubnetworkGroup(const std::vector<SSubNetwork>& sub_ntwks, SSubNetwork& merged_subntwk,const SSubNetwork& subntwk_to_process, std::map<int32_t, int32_t>& map_ntwk2edge_offset)
+void CGlobalShaderNetwork::mergeSubnetworkGroup(const std::vector<SSubNetwork>& sub_ntwks, SSubNetwork& merged_subntwk,const SSubNetwork& subntwk_to_process, std::map<int32_t, int32_t>& map_ntwk2edge_offset)
 {
 	if (subntwk_to_process.opt_sub_networks.size() != 0)
 	{
@@ -211,7 +242,7 @@ void CShaderNetwork::mergeSubnetworkGroup(const std::vector<SSubNetwork>& sub_nt
 }
 
 // @param: map_vtx2offset map vertex to 
-void CShaderNetwork::generateSubnetworkGroup(SSubNetwork& subntwk_to_process)
+void CGlobalShaderNetwork::generateSubnetworkGroup(SSubNetwork& subntwk_to_process)
 {
 	if (subntwk_to_process.opt_sub_networks.size() != 0)
 	{
@@ -229,7 +260,7 @@ void CShaderNetwork::generateSubnetworkGroup(SSubNetwork& subntwk_to_process)
 	}
 }
 
-inline uint32_t CShaderNetwork::addUniqueVertex(const SShaderVertex& shader_vtx)
+inline uint32_t CGlobalShaderNetwork::addUniqueVertex(const SShaderVertex& shader_vtx)
 {
 	global_unique_id++;
 	uint32_t array_index = shader_vertices.size();
@@ -248,7 +279,7 @@ inline uint32_t CShaderNetwork::addUniqueVertex(const SShaderVertex& shader_vtx)
 	return array_index;
 }
 
-inline void CShaderNetwork::addUniqueEdge(uint32_t edge_idx, uint32_t unique_id, bool is_add_ipt_edge)
+inline void CGlobalShaderNetwork::addUniqueEdge(uint32_t edge_idx, uint32_t unique_id, bool is_add_ipt_edge)
 {
 	//hash_to_unique_ids assert_t(false);
 	if (is_add_ipt_edge)
@@ -261,7 +292,7 @@ inline void CShaderNetwork::addUniqueEdge(uint32_t edge_idx, uint32_t unique_id,
 	}
 }
 
-inline void CShaderNetwork::addVertex(const SShaderVertex& shader_vtx)
+inline void CGlobalShaderNetwork::addVertex(const SShaderVertex& shader_vtx)
 {
 	//hash_to_unique_ids assert_t(false);
 	if (unique_id_idx_map.find(shader_vtx.unique_id) == unique_id_idx_map.end())
@@ -270,12 +301,12 @@ inline void CShaderNetwork::addVertex(const SShaderVertex& shader_vtx)
 	}
 }
 
-inline void CShaderNetwork::addVertexEdge(uint32_t src_vtx_idx, uint32_t dst_vtx_idx)
+inline void CGlobalShaderNetwork::addVertexEdge(uint32_t src_vtx_idx, uint32_t dst_vtx_idx)
 {
 
 }
 
-void CShaderNetwork::addHashValueMap(XXH64_hash_t hash_value, uint32_t unique_id)
+void CGlobalShaderNetwork::addHashValueMap(XXH64_hash_t hash_value, uint32_t unique_id)
 {
 	const auto& map_iter = hash_to_unique_ids.find(hash_value);
 	if (map_iter != hash_to_unique_ids.end())
@@ -302,7 +333,7 @@ void CShaderNetwork::addHashValueMap(XXH64_hash_t hash_value, uint32_t unique_id
 * @param	hash_tree & ipt_node
 * @param	vtx_ntwk_map: map shader vetices array index to 
 */
-ELinkType CShaderNetwork::subNetworkIterInputNode(const std::vector<CHashNode>& hash_tree, const CHashNode& ipt_node, const uint32_t ipt_vtx_unique_id, SSubNetwork& sub_network, std::unordered_map<uint32_t, SIteratedVtxInfor>& vtx_ntwk_map, int cur_sub_ntwk_idx, std::vector<SSubNetwork>& sub_ntwks)
+ELinkType CGlobalShaderNetwork::subNetworkIterInputNode(const std::vector<CHashNode>& hash_tree, const CHashNode& ipt_node, const uint32_t ipt_vtx_unique_id, SSubNetwork& sub_network, std::unordered_map<uint32_t, SIteratedVtxInfor>& vtx_ntwk_map, int cur_sub_ntwk_idx, std::vector<SSubNetwork>& sub_ntwks)
 {
 	const uint32_t input_vtx_idx = unique_id_idx_map.find(ipt_vtx_unique_id)->second;
 	const SShaderVertex& input_shader_vtx = shader_vertices[input_vtx_idx];
@@ -373,7 +404,7 @@ void initShaderNetwork()
 {
 	if (!global_shader_network)
 	{
-		global_shader_network = new CShaderNetwork();
+		global_shader_network = new CGlobalShaderNetwork();
 	}
 }
 

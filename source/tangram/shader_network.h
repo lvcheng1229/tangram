@@ -68,7 +68,16 @@ enum ELinkType
 	LT_VILID_LINK = (LT_LINKER_NODE | LT_NON_LINKER_NODE | LT_LINKER_SUBNETWORK),
 };
 
-class CShaderNetwork
+// 层级
+// SSubNetwork 组成了 CShaderNetwork
+// CShaderNetwork 组成了 CGlobalShaderNetwork
+
+class CShadderNetwork
+{
+
+};
+
+class CGlobalShaderNetwork
 {
 public:
 	void addAstHashTree(std::vector<CHashNode>& hash_tree);

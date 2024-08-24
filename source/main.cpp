@@ -449,8 +449,15 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 	finish_ast_to_glsl();
 };
 
+//vf3lib test
+#include <vf3lib/ARGEdit.hpp>
+
 int main()
 {
+	{
+
+	}
+
 	//{
 	//	MannualCodeBlockGenTest();
 	//	return 0;
