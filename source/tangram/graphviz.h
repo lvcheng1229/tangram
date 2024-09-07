@@ -22,6 +22,7 @@ struct SEdge
 class CGraphVis
 {
 public:
+	
 	uint32_t addNode(const SNodeDesc& node_desc);
 	inline void addEdge(uint32_t from, uint32_t to)
 	{

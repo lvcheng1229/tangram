@@ -2,7 +2,7 @@
 #include "shader_network.h"
 #include "graphviz.h"
 
-static CGlobalShaderNetwork* global_shader_network = nullptr;
+/*static CGlobalShaderNetwork* global_shader_network = nullptr;
 
 void CGlobalShaderNetwork::addAstHashTree(std::vector<CHashNode>& hash_tree)
 {
@@ -333,90 +333,91 @@ void CGlobalShaderNetwork::addHashValueMap(XXH64_hash_t hash_value, uint32_t uni
 * @param	hash_tree & ipt_node
 * @param	vtx_ntwk_map: map shader vetices array index to 
 */
-ELinkType CGlobalShaderNetwork::subNetworkIterInputNode(const std::vector<CHashNode>& hash_tree, const CHashNode& ipt_node, const uint32_t ipt_vtx_unique_id, SSubNetwork& sub_network, std::unordered_map<uint32_t, SIteratedVtxInfor>& vtx_ntwk_map, int cur_sub_ntwk_idx, std::vector<SSubNetwork>& sub_ntwks)
-{
-	const uint32_t input_vtx_idx = unique_id_idx_map.find(ipt_vtx_unique_id)->second;
-	const SShaderVertex& input_shader_vtx = shader_vertices[input_vtx_idx];
+//LinkType CGlobalShaderNetwork::subNetworkIterInputNode(const std::vector<CHashNode>& hash_tree, const CHashNode& ipt_node, const uint32_t ipt_vtx_unique_id, SSubNetwork& sub_network, std::unordered_map<uint32_t, SIteratedVtxInfor>& vtx_ntwk_map, int cur_sub_ntwk_idx, std::vector<SSubNetwork>& sub_ntwks)
+//{
+//	const uint32_t input_vtx_idx = unique_id_idx_map.find(ipt_vtx_unique_id)->second;
+//	const SShaderVertex& input_shader_vtx = shader_vertices[input_vtx_idx];
+//
+//	// if the node is already iterated, link current vertex to the exsited sub_network
+//	const auto& vtx_ntwk_iter = vtx_ntwk_map.find(input_vtx_idx);
+//	if ((input_shader_vtx.hash_value == ipt_node.hash_value) /*todo: fix me, different hash node may has the same hash value*/ && (ipt_node.input_hash_nodes.size() > 0 /*non linker object*/) && (vtx_ntwk_iter != vtx_ntwk_map.end()) && (vtx_ntwk_iter->second.other_ntwk_idx != cur_sub_ntwk_idx)/**/)
+//	{
+//		int other_sub_ntwk = vtx_ntwk_iter->second.other_ntwk_idx;
+//		sub_ntwks[other_sub_ntwk].ipt_sub_networks.insert(cur_sub_ntwk_idx);
+//		sub_network.opt_sub_networks.insert(other_sub_ntwk);
+//		SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX ,other_sub_ntwk, /*vtx_ntwk_iter->second.other_ntwk_vtx_array_idx,*/ int32_t(ipt_vtx_unique_id)};
+//		sub_network.sub_vetices.push_back(ipt_network_vtx);
+//		return ELinkType::LT_LINKER_SUBNETWORK;
+//	}
+//
+//	if (input_shader_vtx.hash_value == ipt_node.hash_value && ipt_node.input_hash_nodes.size() > 0 /*non linker object*/) //todo: fix me
+//	{
+//		// iterate the input shader edges of the shader vertex in the shader network
+//		const SShaderVertexEdges& ipt_shader_edges = shader_vtx_edges[input_shader_vtx.vtx_edge_idx];
+//
+//		// todo: output edges
+//		SSubNetwork::SSubNetworkVtexIptEdge valid_shader_edges;
+//		ELinkType edge_link_types = ELinkType::LT_NONE;
+//		for (int next_ipt_edge_idx = 0; next_ipt_edge_idx < ipt_shader_edges.ipt_vtx_unique_ids.size(); next_ipt_edge_idx++)
+//		{
+//			const uint32_t ipt_vtx_unique_id = ipt_shader_edges.ipt_vtx_unique_ids[next_ipt_edge_idx];
+//			for (int ipt_hash_node_idx = 0; ipt_hash_node_idx < ipt_node.input_hash_nodes.size(); ipt_hash_node_idx++)
+//			{
+//				uint32_t ipt_hash_node_mapped_idx = ipt_node.input_hash_nodes[ipt_hash_node_idx];
+//				ELinkType link_type = subNetworkIterInputNode(hash_tree, hash_tree[ipt_hash_node_mapped_idx], ipt_vtx_unique_id,  sub_network, vtx_ntwk_map, cur_sub_ntwk_idx, sub_ntwks);
+//				edge_link_types = ELinkType(edge_link_types | link_type);
+//				//if (link_type & LT_VILID_LINK)
+//				if (link_type & LT_NON_LINKER_NODE)
+//				{
+//					valid_shader_edges.ipt_vtx_unique_ids.push_back(ipt_vtx_unique_id);
+//				}
+//			}
+//		}
+//
+//		if (valid_shader_edges.ipt_vtx_unique_ids.size() > 0) // Current node is linked with the non-linker node
+//		{
+//			SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,static_cast<uint32_t>(sub_network.sub_edges.size()) };
+//			sub_network.sub_edges.push_back(valid_shader_edges);
+//			sub_network.sub_vetices.push_back(ipt_network_vtx);
+//			vtx_ntwk_map.insert(std::pair<uint32_t, SIteratedVtxInfor>(input_vtx_idx, SIteratedVtxInfor{ cur_sub_ntwk_idx/*, int32_t(sub_network.sub_vetices.size() - 1)*/ }));
+//		}
+//		else  if(edge_link_types & LT_VILID_LINK)// Current node is linked with the linker node
+//		{
+//			SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX };
+//			sub_network.sub_vetices.push_back(ipt_network_vtx);
+//			vtx_ntwk_map.insert(std::pair<uint32_t, SIteratedVtxInfor>(input_vtx_idx, SIteratedVtxInfor{ cur_sub_ntwk_idx/*, int32_t(sub_network.sub_vetices.size() - 1)*/}));
+//		}
+//		return ELinkType::LT_NON_LINKER_NODE;
+//	}
+//	else if(input_shader_vtx.hash_value == ipt_node.hash_value && ipt_node.input_hash_nodes.size() == 0 ) // This node is a linker node
+//	{
+//		// Don't consider linker nodes for graph ? Remove these codes?
+//		//SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX };
+//		//sub_network.sub_vetices.push_back(ipt_network_vtx);
+//		//vtx_ntwk_map.insert(std::pair<uint32_t, uint32_t>(input_vtx_idx, cur_sub_ntwk_idx));
+//		return ELinkType::LT_LINKER_NODE;
+//	}
+//	return ELinkType::LT_INVILID_LINK;
+//}
 
-	// if the node is already iterated, link current vertex to the exsited sub_network
-	const auto& vtx_ntwk_iter = vtx_ntwk_map.find(input_vtx_idx);
-	if ((input_shader_vtx.hash_value == ipt_node.hash_value) /*todo: fix me, different hash node may has the same hash value*/ && (ipt_node.input_hash_nodes.size() > 0 /*non linker object*/) && (vtx_ntwk_iter != vtx_ntwk_map.end()) && (vtx_ntwk_iter->second.other_ntwk_idx != cur_sub_ntwk_idx)/**/)
-	{
-		int other_sub_ntwk = vtx_ntwk_iter->second.other_ntwk_idx;
-		sub_ntwks[other_sub_ntwk].ipt_sub_networks.insert(cur_sub_ntwk_idx);
-		sub_network.opt_sub_networks.insert(other_sub_ntwk);
-		SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX ,other_sub_ntwk, /*vtx_ntwk_iter->second.other_ntwk_vtx_array_idx,*/ int32_t(ipt_vtx_unique_id)};
-		sub_network.sub_vetices.push_back(ipt_network_vtx);
-		return ELinkType::LT_LINKER_SUBNETWORK;
-	}
 
-	if (input_shader_vtx.hash_value == ipt_node.hash_value && ipt_node.input_hash_nodes.size() > 0 /*non linker object*/) //todo: fix me
-	{
-		// iterate the input shader edges of the shader vertex in the shader network
-		const SShaderVertexEdges& ipt_shader_edges = shader_vtx_edges[input_shader_vtx.vtx_edge_idx];
-
-		// todo: output edges
-		SSubNetwork::SSubNetworkVtexIptEdge valid_shader_edges;
-		ELinkType edge_link_types = ELinkType::LT_NONE;
-		for (int next_ipt_edge_idx = 0; next_ipt_edge_idx < ipt_shader_edges.ipt_vtx_unique_ids.size(); next_ipt_edge_idx++)
-		{
-			const uint32_t ipt_vtx_unique_id = ipt_shader_edges.ipt_vtx_unique_ids[next_ipt_edge_idx];
-			for (int ipt_hash_node_idx = 0; ipt_hash_node_idx < ipt_node.input_hash_nodes.size(); ipt_hash_node_idx++)
-			{
-				uint32_t ipt_hash_node_mapped_idx = ipt_node.input_hash_nodes[ipt_hash_node_idx];
-				ELinkType link_type = subNetworkIterInputNode(hash_tree, hash_tree[ipt_hash_node_mapped_idx], ipt_vtx_unique_id,  sub_network, vtx_ntwk_map, cur_sub_ntwk_idx, sub_ntwks);
-				edge_link_types = ELinkType(edge_link_types | link_type);
-				//if (link_type & LT_VILID_LINK)
-				if (link_type & LT_NON_LINKER_NODE)
-				{
-					valid_shader_edges.ipt_vtx_unique_ids.push_back(ipt_vtx_unique_id);
-				}
-			}
-		}
-
-		if (valid_shader_edges.ipt_vtx_unique_ids.size() > 0) // Current node is linked with the non-linker node
-		{
-			SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,static_cast<uint32_t>(sub_network.sub_edges.size()) };
-			sub_network.sub_edges.push_back(valid_shader_edges);
-			sub_network.sub_vetices.push_back(ipt_network_vtx);
-			vtx_ntwk_map.insert(std::pair<uint32_t, SIteratedVtxInfor>(input_vtx_idx, SIteratedVtxInfor{ cur_sub_ntwk_idx/*, int32_t(sub_network.sub_vetices.size() - 1)*/ }));
-		}
-		else  if(edge_link_types & LT_VILID_LINK)// Current node is linked with the linker node
-		{
-			SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX };
-			sub_network.sub_vetices.push_back(ipt_network_vtx);
-			vtx_ntwk_map.insert(std::pair<uint32_t, SIteratedVtxInfor>(input_vtx_idx, SIteratedVtxInfor{ cur_sub_ntwk_idx/*, int32_t(sub_network.sub_vetices.size() - 1)*/}));
-		}
-		return ELinkType::LT_NON_LINKER_NODE;
-	}
-	else if(input_shader_vtx.hash_value == ipt_node.hash_value && ipt_node.input_hash_nodes.size() == 0 ) // This node is a linker node
-	{
-		// Don't consider linker nodes for graph ? Remove these codes?
-		//SSubNetwork::SSubNetworkVertex ipt_network_vtx = SSubNetwork::SSubNetworkVertex{ input_vtx_idx ,INVALIDA_EDGE_DIX };
-		//sub_network.sub_vetices.push_back(ipt_network_vtx);
-		//vtx_ntwk_map.insert(std::pair<uint32_t, uint32_t>(input_vtx_idx, cur_sub_ntwk_idx));
-		return ELinkType::LT_LINKER_NODE;
-	}
-	return ELinkType::LT_INVILID_LINK;
-}
-
-void initShaderNetwork()
-{
-	if (!global_shader_network)
-	{
-		global_shader_network = new CGlobalShaderNetwork();
-	}
-}
-
-void addAstHashTree(std::vector<CHashNode>& hash_tree)
-{
-	global_shader_network->addAstHashTree(hash_tree);
-}
-
-void finalizeShaderNetwork()
-{
-	if (global_shader_network)
-	{
-		delete global_shader_network;
-	}
-}
+//void initShaderNetwork()
+//{
+//	//if (!global_shader_network)
+//	//{
+//	//	global_shader_network = new CGlobalShaderNetwork();
+//	//}
+//}
+//
+//void addAstHashTree(std::vector<CHashNode>& hash_tree)
+//{
+//	//global_shader_network->addAstHashTree(hash_tree);
+//}
+//
+//void finalizeShaderNetwork()
+//{
+//	//if (global_shader_network)
+//	//{
+//	//	delete global_shader_network;
+//	//}
+//}

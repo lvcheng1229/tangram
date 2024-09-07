@@ -1,5 +1,5 @@
 #include "ast_hash_tree.h"
-#include "shader_network.h"
+#include "global_graph_builder.h"
 
 
 // find and store the symbols in the scope in order
@@ -1702,7 +1702,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		CASTHashTreeBuilder hash_tree_builder;
 		hash_tree_builder.preTranverse(intermediate);
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
-		addAstHashTree(hash_tree_builder.getTreeHashNodes());
+		addHashedGraphToGlobalGraphBuilder(hash_tree_builder.getTreeHashNodes());
 	}
  	return false;
 }

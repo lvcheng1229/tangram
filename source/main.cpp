@@ -6,7 +6,7 @@
 #include "zstd/zstd.h"
 #include "zstd/zdict.h"
 #include "tangram/tangram.h"
-#include "tangram/shader_network.h"
+#include "tangram/global_graph_builder.h"
 #include "tangram/glslang_headers.h"
 
 //boost graph test
@@ -392,7 +392,8 @@ void TestSingleASTToHashTree()
 void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 {
 	init_ast_to_glsl();
-	initShaderNetwork();
+	initialGlobalShaderGraphBuild();
+	//initShaderNetwork();
 
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 
@@ -411,7 +412,7 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 
 	int success_num = 0;
 
-	for (int idx = 27287; idx < shader_archive.ShaderEntries.size(); idx++)
+	for (int idx = 27287; idx < shader_archive.ShaderEntries.size() && (idx < 27287 + 4); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
@@ -453,8 +454,8 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 	}
 
 	
-	
-	finalizeShaderNetwork();
+	finalizeGlobalShaderGraphBuild();
+	//finalizeShaderNetwork();
 	finish_ast_to_glsl();
 };
 
@@ -512,95 +513,95 @@ private:
 
 int main()
 {
-	{
-		struct SShaderNode
-		{
-			XXH64_hash_t hash_key;
-		};
-
-		typedef boost::adjacency_list< boost::listS, boost::vecS, boost::directedS,
-			boost::property< boost::vertex_name_t, SShaderNode,
-			boost::property< boost::vertex_index_t, unsigned int > >,
-			boost::property< boost::edge_name_t, unsigned int > >
-			Graph;
-
-		typedef boost::property_map< Graph, boost::vertex_name_t >::type VertexNameMap;
-
-		// Test maximum and unique variants on known graphs
-		Graph graph_simple1, graph_simple2;
-		example_callback< Graph > user_callback(graph_simple1);
-
-		VertexNameMap vname_map_simple1 = get(boost::vertex_name, graph_simple1);
-		VertexNameMap vname_map_simple2 = get(boost::vertex_name, graph_simple2);
-
-		put(vname_map_simple1, add_vertex(graph_simple1), 0);
-		put(vname_map_simple1, add_vertex(graph_simple1), 1);
-		put(vname_map_simple1, add_vertex(graph_simple1), 2);
-		put(vname_map_simple1, add_vertex(graph_simple1), 3);
-		put(vname_map_simple1, add_vertex(graph_simple1), 4);
-		put(vname_map_simple1, add_vertex(graph_simple1), 5);
-		put(vname_map_simple1, add_vertex(graph_simple1), 6);
-
-		add_edge(0, 1, graph_simple1);
-		add_edge(0, 2, graph_simple1);
-		add_edge(1, 2, graph_simple1);
-		add_edge(1, 6, graph_simple1);
-		add_edge(6, 3, graph_simple1);
-		add_edge(3, 5, graph_simple1);
-		add_edge(5, 4, graph_simple1);
-
-		std::cout << "First graph:" << std::endl;
-		print_graph(graph_simple1);
-		std::cout << std::endl;
-
-		put(vname_map_simple2, add_vertex(graph_simple2), 0);
-		put(vname_map_simple2, add_vertex(graph_simple2), 1);
-		put(vname_map_simple2, add_vertex(graph_simple2), 2);
-		put(vname_map_simple2, add_vertex(graph_simple2), 3);
-		put(vname_map_simple2, add_vertex(graph_simple2), 4);
-		put(vname_map_simple2, add_vertex(graph_simple2), 5);
-
-		add_edge(0, 1, graph_simple2);
-		add_edge(0, 2, graph_simple2);
-		add_edge(1, 2, graph_simple2);
-		add_edge(1, 3, graph_simple2);
-		add_edge(3, 5, graph_simple2);
-		add_edge(5, 4, graph_simple2);
-
-		std::cout << "Second graph:" << std::endl;
-		print_graph(graph_simple2);
-		std::cout << std::endl;
-
-		// All subgraphs
-		std::cout << "mcgregor_common_subgraphs:" << std::endl;
-		mcgregor_common_subgraphs(graph_simple1, graph_simple2, true, user_callback,
-			vertices_equivalent(make_property_map_equivalent(
-				vname_map_simple1, vname_map_simple2)));
-		std::cout << std::endl;
-
-		// Unique subgraphs
-		std::cout << "mcgregor_common_subgraphs_unique:" << std::endl;
-		mcgregor_common_subgraphs_unique(graph_simple1, graph_simple2, true,
-			user_callback,
-			vertices_equivalent(make_property_map_equivalent(
-				vname_map_simple1, vname_map_simple2)));
-		std::cout << std::endl;
-
-		// Maximum subgraphs
-		std::cout << "mcgregor_common_subgraphs_maximum:" << std::endl;
-		mcgregor_common_subgraphs_maximum(graph_simple1, graph_simple2, true,
-			user_callback,
-			vertices_equivalent(make_property_map_equivalent(
-				vname_map_simple1, vname_map_simple2)));
-		std::cout << std::endl;
-
-		// Maximum, unique subgraphs
-		std::cout << "mcgregor_common_subgraphs_maximum_unique:" << std::endl;
-		mcgregor_common_subgraphs_maximum_unique(graph_simple1, graph_simple2, true,
-			user_callback,
-			vertices_equivalent(make_property_map_equivalent(
-				vname_map_simple1, vname_map_simple2)));
-	}
+	//{
+	//	struct SShaderNode
+	//	{
+	//		XXH64_hash_t hash_key;
+	//	};
+	//
+	//	typedef boost::adjacency_list< boost::listS, boost::vecS, boost::directedS,
+	//		boost::property< boost::vertex_name_t, SShaderNode,
+	//		boost::property< boost::vertex_index_t, unsigned int > >,
+	//		boost::property< boost::edge_name_t, unsigned int > >
+	//		Graph;
+	//
+	//	typedef boost::property_map< Graph, boost::vertex_name_t >::type VertexNameMap;
+	//
+	//	// Test maximum and unique variants on known graphs
+	//	Graph graph_simple1, graph_simple2;
+	//	example_callback< Graph > user_callback(graph_simple1);
+	//
+	//	VertexNameMap vname_map_simple1 = get(boost::vertex_name, graph_simple1);
+	//	VertexNameMap vname_map_simple2 = get(boost::vertex_name, graph_simple2);
+	//
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 0);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 1);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 2);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 3);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 4);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 5);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), 6);
+	//
+	//	add_edge(0, 1, graph_simple1);
+	//	add_edge(0, 2, graph_simple1);
+	//	add_edge(1, 2, graph_simple1);
+	//	add_edge(1, 6, graph_simple1);
+	//	add_edge(6, 3, graph_simple1);
+	//	add_edge(3, 5, graph_simple1);
+	//	add_edge(5, 4, graph_simple1);
+	//
+	//	std::cout << "First graph:" << std::endl;
+	//	print_graph(graph_simple1);
+	//	std::cout << std::endl;
+	//
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 0);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 1);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 2);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 3);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 4);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), 5);
+	//
+	//	add_edge(0, 1, graph_simple2);
+	//	add_edge(0, 2, graph_simple2);
+	//	add_edge(1, 2, graph_simple2);
+	//	add_edge(1, 3, graph_simple2);
+	//	add_edge(3, 5, graph_simple2);
+	//	add_edge(5, 4, graph_simple2);
+	//
+	//	std::cout << "Second graph:" << std::endl;
+	//	print_graph(graph_simple2);
+	//	std::cout << std::endl;
+	//
+	//	// All subgraphs
+	//	std::cout << "mcgregor_common_subgraphs:" << std::endl;
+	//	mcgregor_common_subgraphs(graph_simple1, graph_simple2, true, user_callback,
+	//		vertices_equivalent(make_property_map_equivalent(
+	//			vname_map_simple1, vname_map_simple2)));
+	//	std::cout << std::endl;
+	//
+	//	// Unique subgraphs
+	//	std::cout << "mcgregor_common_subgraphs_unique:" << std::endl;
+	//	mcgregor_common_subgraphs_unique(graph_simple1, graph_simple2, true,
+	//		user_callback,
+	//		vertices_equivalent(make_property_map_equivalent(
+	//			vname_map_simple1, vname_map_simple2)));
+	//	std::cout << std::endl;
+	//
+	//	// Maximum subgraphs
+	//	std::cout << "mcgregor_common_subgraphs_maximum:" << std::endl;
+	//	mcgregor_common_subgraphs_maximum(graph_simple1, graph_simple2, true,
+	//		user_callback,
+	//		vertices_equivalent(make_property_map_equivalent(
+	//			vname_map_simple1, vname_map_simple2)));
+	//	std::cout << std::endl;
+	//
+	//	// Maximum, unique subgraphs
+	//	std::cout << "mcgregor_common_subgraphs_maximum_unique:" << std::endl;
+	//	mcgregor_common_subgraphs_maximum_unique(graph_simple1, graph_simple2, true,
+	//		user_callback,
+	//		vertices_equivalent(make_property_map_equivalent(
+	//			vname_map_simple1, vname_map_simple2)));
+	//}
 
 	//{
 	//	MannualCodeBlockGenTest();

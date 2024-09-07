@@ -25,26 +25,41 @@ struct SShaderCodeVertex
 	inline bool operator==(const SShaderCodeVertex& other) { return hash_value == other.hash_value; }
 };
 
+struct SShaderCodeEdge
+{
+	unsigned int edge_value;
+};
+
 class CGlobalGraphsBuilder
 {
 public:
-	void addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs);
-	void mergeGraphs();
+	
 
-private:
-	typedef boost::adjacency_list< 
+	typedef boost::adjacency_list<
 		boost::listS, boost::vecS, boost::directedS,
 		boost::property< boost::vertex_name_t, SShaderCodeVertex,
 		boost::property< boost::vertex_index_t, unsigned int > >,
-		boost::property< boost::edge_name_t, unsigned int > >
+		boost::property< boost::edge_name_t, SShaderCodeEdge> >
 		Graph;
-
 	typedef boost::property_map< Graph, boost::vertex_name_t >::type VertexNameMap;
+	typedef boost::property_map< Graph, boost::vertex_index_t >::type VertexIndexMap;
+
+	void addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs);
+	void visGraph(Graph* graph);
+	void mergeGraphs();
+private:
 
 	std::vector<Graph> unmerged_graphs;
 
 	Graph merged_graphs;
+
+	Graph mergeGraph(Graph* graph_a, Graph* graph_b);
+
 #if TANGRAM_DEBUG
 	int graphviz_debug_idx;
 #endif
 };
+
+void initialGlobalShaderGraphBuild();
+void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs);
+void finalizeGlobalShaderGraphBuild();
