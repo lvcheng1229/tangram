@@ -5,6 +5,8 @@
 #include <algorithm>
 #include "zstd/zstd.h"
 #include "zstd/zdict.h"
+
+#include "tangram/tangram_utility.h"
 #include "tangram/tangram.h"
 #include "tangram/global_graph_builder.h"
 #include "tangram/glslang_headers.h"
@@ -18,13 +20,7 @@
 #include <boost/graph/mcgregor_common_subgraphs.hpp>
 #include <boost/property_map/shared_array_property_map.hpp>
 
-#define TEXT(text) TEXT_I(text)
-#define TEXT_I(...) #__VA_ARGS__
-
-#define TEXT_CAT(a, b) TEXT_CAT_I(a, b)
-#define TEXT_CAT_I(a, b) a ## b
-
-#define ABSOLUTE_PATH(x)  TEXT_CAT(TEXT(TANGRAM_DIR), x);
+using namespace tangram;
 
 static char cluster_shading_code[4753] = "\
 if (MobileBasePass.MobileBasePass_ClusteredShading_CulledLightNecessaryDepthSliceData.w != 0.0)\n\
@@ -241,11 +237,11 @@ void MannualCodeBlockGenTest()
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 
 	std::vector<char> dict_buffer;
-	std::string dict_path = ABSOLUTE_PATH("/source/resource/MSDKPushMsg.json");
+	std::string dict_path = absolutePath("/source/resource/MSDKPushMsg.json");
 	LoadBuffer(dict_buffer, dict_path);
 	ZSTD_DDict* Zstd_ddict = ZSTD_createDDict(dict_buffer.data(), dict_buffer.size());
 
-	std::string shader_path = ABSOLUTE_PATH("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
+	std::string shader_path = absolutePath("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
 	std::ifstream shader_data = std::ifstream(shader_path, std::ios::in | std::ios::binary);
 	CShaderArchive shader_archive;
 	shader_archive.Serialize(shader_data);
@@ -361,7 +357,7 @@ void TestSingleAstToGL()
 {
 	init_ast_to_glsl();
 	std::vector<char> dict_buffer;
-	std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
+	std::string shader_path = absolutePath("/source/resource/ast_test.frag");
 	LoadBuffer(dict_buffer, shader_path);
 	int size_code = dict_buffer.size();
 
@@ -371,7 +367,7 @@ void TestSingleAstToGL()
 	ast_to_glsl((const char* const*)dict_buffer.data(), &size_code, out_buffer.data(), out_size);
 	out_buffer.resize(out_size);
 
-	std::string out_path = ABSOLUTE_PATH("/source/resource/ast_test_o.frag");
+	std::string out_path = absolutePath("/source/resource/ast_test_o.frag");
 	OutBuffer(out_buffer, out_path);
 
 	finish_ast_to_glsl();
@@ -381,7 +377,7 @@ void TestSingleASTToHashTree()
 {
 	initAstToHashTree();
 	std::vector<char> dict_buffer;
-	std::string shader_path = ABSOLUTE_PATH("/source/resource/ast_test.frag");
+	std::string shader_path = absolutePath("/source/resource/ast_test.frag");
 	LoadBuffer(dict_buffer, shader_path);
 	int size_code = dict_buffer.size();
 
@@ -392,17 +388,17 @@ void TestSingleASTToHashTree()
 void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 {
 	init_ast_to_glsl();
-	initialGlobalShaderGraphBuild();
+	initGlobalShaderGraphBuild();
 	//initShaderNetwork();
 
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 
 	std::vector<char> dict_buffer;
-	std::string dict_path = ABSOLUTE_PATH("/source/resource/MSDKPushMsg.json");
+	std::string dict_path = absolutePath("/source/resource/MSDKPushMsg.json");
 	LoadBuffer(dict_buffer, dict_path);
 	ZSTD_DDict* Zstd_ddict = ZSTD_createDDict(dict_buffer.data(), dict_buffer.size());
 
-	std::string shader_path = ABSOLUTE_PATH("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
+	std::string shader_path = absolutePath("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
 	std::ifstream shader_data = std::ifstream(shader_path, std::ios::in | std::ios::binary);
 	CShaderArchive shader_archive;
 	shader_archive.Serialize(shader_data);
@@ -454,7 +450,8 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 	}
 
 	
-	finalizeGlobalShaderGraphBuild();
+	buildGlobalShaderGraph();
+	releaseGlobalShaderGraph();
 	//finalizeShaderNetwork();
 	finish_ast_to_glsl();
 };
@@ -464,12 +461,12 @@ using namespace boost;
 // Callback that looks for the first common 
 // subgraph whose size
 // matches the user's preference.
-template < typename Graph > struct example_callback
+template < typename CGraph > struct example_callback
 {
 
-	typedef typename boost::graph_traits< Graph >::vertices_size_type VertexSizeFirst;
+	typedef typename boost::graph_traits< CGraph >::vertices_size_type VertexSizeFirst;
 
-	example_callback(const Graph& graph1) : m_graph1(graph1) {}
+	example_callback(const CGraph& graph1) : m_graph1(graph1) {}
 
 	template < typename CorrespondenceMapFirstToSecond,
 		typename CorrespondenceMapSecondToFirst >
@@ -480,17 +477,17 @@ template < typename Graph > struct example_callback
 
 		// Fill membership map for first graph
 		typedef
-			typename property_map< Graph, vertex_index_t >::type VertexIndexMap;
+			typename property_map< CGraph, vertex_index_t >::type VertexIndexMap;
 		typedef shared_array_property_map< bool, VertexIndexMap > MembershipMap;
 
 		MembershipMap membership_map1(
 			num_vertices(m_graph1), get(vertex_index, m_graph1));
 
-		fill_membership_map< Graph >(
+		fill_membership_map< CGraph >(
 			m_graph1, correspondence_map_1_to_2, membership_map1);
 
 		// Generate filtered graphs using membership map
-		typedef typename membership_filtered_graph_traits< Graph,
+		typedef typename membership_filtered_graph_traits< CGraph,
 			MembershipMap >::graph_type MembershipFilteredGraph;
 
 		MembershipFilteredGraph subgraph1
@@ -507,7 +504,7 @@ template < typename Graph > struct example_callback
 	}
 
 private:
-	const Graph& m_graph1;
+	const CGraph& m_graph1;
 	VertexSizeFirst m_max_subgraph_size;
 };
 
@@ -624,11 +621,11 @@ int main()
 	ZSTD_DCtx* Context = ZSTD_createDCtx();
 	
 	std::vector<char> dict_buffer;
-	std::string dict_path = ABSOLUTE_PATH("/source/resource/MSDKPushMsg.json");
+	std::string dict_path = absolutePath("/source/resource/MSDKPushMsg.json");
 	LoadBuffer(dict_buffer, dict_path);
 	ZSTD_DDict* Zstd_ddict = ZSTD_createDDict(dict_buffer.data(), dict_buffer.size());
 
-	std::string shader_path = ABSOLUTE_PATH("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
+	std::string shader_path = absolutePath("/source/resource/ShaderArchive-SpeedGame-GLSL_ES3_1_ANDROID.ushaderbytecode");
 	std::ifstream shader_data = std::ifstream(shader_path, std::ios::in | std::ios::binary);
 	CShaderArchive shader_archive;
 	shader_archive.Serialize(shader_data);
@@ -759,7 +756,7 @@ int main()
 		//memcpy(custom_dict_buffer.data(), custom_dict_buffer.data(), custom_dict_size);
 		//memcpy(merged_dict_buffer.data() + custom_dict_size, new_dict_buffer.data(), new_dict_size);
 
-		std::string new_dict_path = ABSOLUTE_PATH("/source/resource/new_MSDKPushMsg.json");
+		std::string new_dict_path = absolutePath("/source/resource/new_MSDKPushMsg.json");
 		std::ofstream new_dict_file = std::ofstream(new_dict_path, std::ios::out | std::ios::binary);
 		//new_dict_file.write(custom_dict_buffer.data(), custom_dict_size);
 		new_dict_file.write(new_dict_buffer.data(), new_dict_size);

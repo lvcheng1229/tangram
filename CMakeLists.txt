@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
+set(CMAKE_GENERATOR_TOOLSET "ClangCL")
+
 project(tangram VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -28,5 +30,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/glslang)
 
 #
 add_definitions(-D TANGRAM_DIR=${TANGRAM_ROOT_DIR})
+add_definitions(-D TANGRAM_INTERMEDIATE_DIR=${TANGRAM_ROOT_DIR}/intermediate)
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Source" FILES ${HEADER_FILES} ${SOURCE_FILES} ${SOURCE_FILES_CC} ${SOURCE_FILES_C})
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${SOURCE_FILES_CC} ${SOURCE_FILES_C})

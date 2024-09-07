@@ -1,3 +1,6 @@
+#include "global_graph_builder.h"
+#include "graphviz.h"
+
 #include <boost/lexical_cast.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/filtered_graph.hpp>
@@ -7,16 +10,13 @@
 #include <boost/property_map/shared_array_property_map.hpp>
 #include <boost/graph/depth_first_search.hpp>
 
-#include "global_graph_builder.h"
-#include "graphviz.h"
+static CGlobalGraphsBuilder* global_graph_builder = nullptr;
 
 using namespace boost;
 
-
-
 void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs)
 {
-	Graph builded_graph;
+	CGraph builded_graph;
 	VertexNameMap vname_map_simple1 = get(boost::vertex_name, builded_graph);
 
 	for (auto& iter : hash_dependency_graphs)
@@ -43,7 +43,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 #endif
 }
 
-void CGlobalGraphsBuilder::visGraph(Graph* graph)
+void CGlobalGraphsBuilder::visGraph(CGraph* graph)
 {
 	graphviz_debug_idx++;
 
@@ -88,40 +88,38 @@ void CGlobalGraphsBuilder::mergeGraphs()
 class CMergeGraphDFSVisitor : public boost::default_dfs_visitor
 {
 public:
-	CMergeGraphDFSVisitor(CGlobalGraphsBuilder::Graph ipt_new_graph)
+	CMergeGraphDFSVisitor(CGraph ipt_new_graph)
 		:new_graph(ipt_new_graph) {}
 
 
-	void examine_edge(SShaderCodeEdge e, CGlobalGraphsBuilder::Graph g)const
+	void examine_edge(SShaderCodeEdge e, CGraph g)const
 	{
 
 	}
 
 private:
-	CGlobalGraphsBuilder::Graph new_graph;
+	CGraph new_graph;
 };
 
 struct SOutputMaxComSubGraph
 {
 public:
-	typedef typename boost::graph_traits< CGlobalGraphsBuilder::Graph >::vertices_size_type VertexSizeFirst;
+	typedef typename boost::graph_traits< CGraph >::vertices_size_type VertexSizeFirst;
 
-	SOutputMaxComSubGraph(const CGlobalGraphsBuilder::Graph& graph1) : m_graph1(graph1) {}
+	SOutputMaxComSubGraph(const CGraph& graph1) : m_graph1(graph1) {}
 
 	template < typename CorrespondenceMapFirstToSecond, typename CorrespondenceMapSecondToFirst >
 	bool operator()(CorrespondenceMapFirstToSecond correspondence_map_1_to_2, CorrespondenceMapSecondToFirst correspondence_map_2_to_1, VertexSizeFirst subgraph_size)
 	{
 
-		// Fill membership map for first graph
-		typedef typename property_map< CGlobalGraphsBuilder::Graph, vertex_index_t >::type VertexIndexMap;
 		typedef shared_array_property_map< bool, VertexIndexMap > MembershipMap;
 
 		MembershipMap membership_map1(num_vertices(m_graph1), get(vertex_index, m_graph1));
 
-		fill_membership_map< CGlobalGraphsBuilder::Graph >(m_graph1, correspondence_map_1_to_2, membership_map1);
+		fill_membership_map< CGraph >(m_graph1, correspondence_map_1_to_2, membership_map1);
 
 		// Generate filtered graphs using membership map
-		typedef typename membership_filtered_graph_traits< CGlobalGraphsBuilder::Graph, MembershipMap >::graph_type MembershipFilteredGraph;
+		typedef typename membership_filtered_graph_traits< CGraph, MembershipMap >::graph_type MembershipFilteredGraph;
 
 		MembershipFilteredGraph subgraph1 = make_membership_filtered_graph(m_graph1, membership_map1);
 
@@ -139,25 +137,23 @@ private:
 	//std::set<>*;
 	//std::map<>*;
 
-	const CGlobalGraphsBuilder::Graph& m_graph1;
+	const CGraph& m_graph1;
 	VertexSizeFirst m_max_subgraph_size;
 };
 
-CGlobalGraphsBuilder::Graph CGlobalGraphsBuilder::mergeGraph(Graph* graph_a, Graph* graph_b)
+
+CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 {
 	VertexNameMap vtx_name_map_a = get(boost::vertex_name, *graph_a);
 	VertexNameMap vtx_name_map_b = get(boost::vertex_name, *graph_b);
 
-	SOutputMaxComSubGraph output_maxcom_graph(*graph_a);
-
-	mcgregor_common_subgraphs_maximum_unique(graph_a, graph_b, true, output_maxcom_graph,
-		vertices_equivalent(make_property_map_equivalent(vtx_name_map_a, vtx_name_map_b)));
+	SOutputMaxComSubGraph output_maxcom_graph(*graph_a); 
+	mcgregor_common_subgraphs_maximum_unique(*graph_a, *graph_b, true, output_maxcom_graph, vertices_equivalent(make_property_map_equivalent(vtx_name_map_a, vtx_name_map_b)));
 	
-	Graph new_graph = *graph_a;
-
-
-	CMergeGraphDFSVisitor merge_graph_dfs_visitor(new_graph);
-	depth_first_search(*graph_a, visitor(merge_graph_dfs_visitor));
+	
+	//CGraph new_graph = *graph_a;
+	//CMergeGraphDFSVisitor merge_graph_dfs_visitor(new_graph);
+	//depth_first_search(*graph_a, visitor(merge_graph_dfs_visitor));
 
 	//以A图为基础，DFS遍历B图
 	//对于B图中所遍历到的任何一个顶点
@@ -171,17 +167,36 @@ CGlobalGraphsBuilder::Graph CGlobalGraphsBuilder::mergeGraph(Graph* graph_a, Gra
 
 
 
-	return Graph();
+	return CGraph();
 }
 
-void initialGlobalShaderGraphBuild()
+void initGlobalShaderGraphBuild()
 {
+	if (global_graph_builder == nullptr)
+	{
+		global_graph_builder = new CGlobalGraphsBuilder();
+	}
 }
 
 void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs)
 {
+	if (global_graph_builder == nullptr)
+	{
+		assert(false && "global_graph_builder == nullptr");
+	}
+
+	global_graph_builder->addHashDependencyGraph(hash_dependency_graphs);
 }
 
-void finalizeGlobalShaderGraphBuild()
+void buildGlobalShaderGraph()
 {
+	
+}
+
+void releaseGlobalShaderGraph()
+{
+	if (global_graph_builder != nullptr)
+	{
+		delete global_graph_builder;
+	}
 }
