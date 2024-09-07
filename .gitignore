@@ -33,4 +33,5 @@
 
 /build/*
 /source/resource/*
-
+/intermediate/*
+*.TMP

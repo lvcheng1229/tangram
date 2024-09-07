@@ -407,8 +407,9 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 	glslang::InitializeProcess();
 
 	int success_num = 0;
+	int test_number = 0;
 
-	for (int idx = 27287; idx < shader_archive.ShaderEntries.size() && (idx < 27287 + 4); idx++)
+	for (int idx = 27287; idx < shader_archive.ShaderEntries.size(); idx++)
 	{
 		FShaderCodeEntry& shader_entry = shader_archive.ShaderEntries[idx];
 		shader_data.seekg(shader_offset + shader_entry.Offset, std::ios::beg);
@@ -440,6 +441,15 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 			else
 			{
 				bool result = ast_to_hash_treel((const char* const*)(shader_code_decompressed_data.data()), &code_size);
+				if (result)
+				{
+					test_number++;
+				}
+
+				if (test_number == 4)
+				{
+					break;
+				}
 			}
 		}
 

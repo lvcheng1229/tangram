@@ -1,5 +1,8 @@
 #include "global_graph_builder.h"
 #include "graphviz.h"
+#include "tangram_utility.h"
+
+#include <fstream>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/graph/adjacency_list.hpp>
@@ -10,8 +13,11 @@
 #include <boost/property_map/shared_array_property_map.hpp>
 #include <boost/graph/depth_first_search.hpp>
 
+#define DOT_FILE_TO_PNG 1
+
 static CGlobalGraphsBuilder* global_graph_builder = nullptr;
 
+using namespace tangram;
 using namespace boost;
 
 void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs)
@@ -36,6 +42,29 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 		}
 	}
 
+	// bug test
+	graph_traits<CGraph>::vertex_iterator vi, vi_end, next;
+	tie(vi, vi_end) = vertices(builded_graph);
+	for (next = vi; vi != vi_end; vi = next) 
+	{
+		++next;
+		size_t property_map_idx = *vi;
+
+		auto vtx_adj_vertices = adjacent_vertices(property_map_idx, builded_graph);
+
+		if (vtx_adj_vertices.first != vtx_adj_vertices.second)
+		{
+			remove_vertex(*vi, builded_graph);
+		}
+	}
+
+
+
+
+
+
+
+
 	unmerged_graphs.push_back(builded_graph);
 
 #if TANGRAM_DEBUG
@@ -43,6 +72,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 #endif
 }
 
+#if TANGRAM_DEBUG
 void CGlobalGraphsBuilder::visGraph(CGraph* graph)
 {
 	graphviz_debug_idx++;
@@ -79,10 +109,27 @@ void CGlobalGraphsBuilder::visGraph(CGraph* graph)
 	}
 
 	out_dot_file += "}";
+
+	std::string dot_file_path = intermediatePath() + std::to_string(graphviz_debug_idx) + ".dot";
+	std::ofstream output_dotfile(dot_file_path);
+
+	output_dotfile << out_dot_file;
+
+	output_dotfile.close();
+
+#if DOT_FILE_TO_PNG
+	std::string dot_to_png_cmd = "dot -Tpng " + dot_file_path + " -o " + intermediatePath() + std::to_string(graphviz_debug_idx) + ".png";
+	system(dot_to_png_cmd.c_str());
+#endif
 }
+#endif
 
 void CGlobalGraphsBuilder::mergeGraphs()
 {
+	for (int test_index = 0; test_index < 4; test_index += 2)
+	{
+		mergeGraph(&unmerged_graphs[test_index], &unmerged_graphs[test_index + 1]);
+	}
 }
 
 class CMergeGraphDFSVisitor : public boost::default_dfs_visitor
@@ -111,7 +158,6 @@ public:
 	template < typename CorrespondenceMapFirstToSecond, typename CorrespondenceMapSecondToFirst >
 	bool operator()(CorrespondenceMapFirstToSecond correspondence_map_1_to_2, CorrespondenceMapSecondToFirst correspondence_map_2_to_1, VertexSizeFirst subgraph_size)
 	{
-
 		typedef shared_array_property_map< bool, VertexIndexMap > MembershipMap;
 
 		MembershipMap membership_map1(num_vertices(m_graph1), get(vertex_index, m_graph1));
@@ -147,9 +193,10 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	VertexNameMap vtx_name_map_a = get(boost::vertex_name, *graph_a);
 	VertexNameMap vtx_name_map_b = get(boost::vertex_name, *graph_b);
 
+	//fix subgraph problem
+
 	SOutputMaxComSubGraph output_maxcom_graph(*graph_a); 
 	mcgregor_common_subgraphs_maximum_unique(*graph_a, *graph_b, true, output_maxcom_graph, vertices_equivalent(make_property_map_equivalent(vtx_name_map_a, vtx_name_map_b)));
-	
 	
 	//CGraph new_graph = *graph_a;
 	//CMergeGraphDFSVisitor merge_graph_dfs_visitor(new_graph);
@@ -190,7 +237,7 @@ void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_
 
 void buildGlobalShaderGraph()
 {
-	
+	global_graph_builder->mergeGraphs();
 }
 
 void releaseGlobalShaderGraph()

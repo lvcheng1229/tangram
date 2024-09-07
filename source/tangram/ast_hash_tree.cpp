@@ -1670,7 +1670,10 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		TIntermediate* intermediate = shader.getIntermediate();
 		TInvalidShaderTraverser invalid_traverser;
 		intermediate->getTreeRoot()->traverse(&invalid_traverser);
-		if (!invalid_traverser.getIsValidShader()) { return false; }
+		if (!invalid_traverser.getIsValidShader()) 
+		{ 
+			return false;
+		}
 
 		TIntermAggregate* root_aggregate = intermediate->getTreeRoot()->getAsAggregate();
 		if (root_aggregate != nullptr)
@@ -1704,7 +1707,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
 		addHashedGraphToGlobalGraphBuilder(hash_tree_builder.getTreeHashNodes());
 	}
- 	return false;
+ 	return true;
 }
 
 

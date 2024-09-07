@@ -46,7 +46,9 @@ class CGlobalGraphsBuilder
 {
 public:
 	void addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs);
+#if TANGRAM_DEBUG
 	void visGraph(CGraph* graph);
+#endif
 	void mergeGraphs();
 private:
 
