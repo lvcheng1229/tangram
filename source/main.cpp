@@ -521,33 +521,35 @@ private:
 int main()
 {
 	//{
-	//	struct SShaderNode
+	//	struct TestShaderNode
 	//	{
-	//		XXH64_hash_t hash_key;
+	//		unsigned int hash_value;
+	//		inline bool operator==(const TestShaderNode& other) { return hash_value == other.hash_value; }
 	//	};
 	//
 	//	typedef boost::adjacency_list< boost::listS, boost::vecS, boost::directedS,
-	//		boost::property< boost::vertex_name_t, SShaderNode,
+	//		boost::property< boost::vertex_name_t, TestShaderNode,
 	//		boost::property< boost::vertex_index_t, unsigned int > >,
 	//		boost::property< boost::edge_name_t, unsigned int > >
-	//		Graph;
+	//		Graph2;
 	//
-	//	typedef boost::property_map< Graph, boost::vertex_name_t >::type VertexNameMap;
+	//	typedef boost::property_map< Graph2, boost::vertex_name_t >::type VertexNameMap;
 	//
 	//	// Test maximum and unique variants on known graphs
-	//	Graph graph_simple1, graph_simple2;
-	//	example_callback< Graph > user_callback(graph_simple1);
+	//	Graph2 graph_simple1, graph_simple2;
+	//	example_callback< Graph2 > user_callback(graph_simple1);
 	//
 	//	VertexNameMap vname_map_simple1 = get(boost::vertex_name, graph_simple1);
 	//	VertexNameMap vname_map_simple2 = get(boost::vertex_name, graph_simple2);
 	//
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 0);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 1);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 2);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 3);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 4);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 5);
-	//	put(vname_map_simple1, add_vertex(graph_simple1), 6);
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{0});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{1});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{2});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{3});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{4});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{5});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{6});
+	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{ 7 });
 	//
 	//	add_edge(0, 1, graph_simple1);
 	//	add_edge(0, 2, graph_simple1);
@@ -561,12 +563,12 @@ int main()
 	//	print_graph(graph_simple1);
 	//	std::cout << std::endl;
 	//
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 0);
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 1);
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 2);
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 3);
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 4);
-	//	put(vname_map_simple2, add_vertex(graph_simple2), 5);
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{0});
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{1});
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{2});
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{3});
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{4});
+	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{ 5 });
 	//
 	//	add_edge(0, 1, graph_simple2);
 	//	add_edge(0, 2, graph_simple2);

@@ -331,7 +331,6 @@ namespace detail
 
             BGL_FORALL_VERTICES_T(new_vertex2, graph2, GraphSecond)
             {
-
                 VertexFirst existing_vertex1
                     = get(correspondence_map_2_to_1, new_vertex2);
 

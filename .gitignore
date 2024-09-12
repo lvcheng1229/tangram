@@ -33,5 +33,6 @@
 
 /build/*
 /source/resource/*
+/thirdparty/boost/*
 /intermediate/*
 *.TMP

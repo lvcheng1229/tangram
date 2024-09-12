@@ -33,6 +33,9 @@ struct SShaderCodeEdge
 	unsigned int edge_value;
 };
 
+// Use boost::listS to store the vertices since execute 'remove vertices' causing 'Iterator and Descriptor Stability/Invalidation' https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/adjacency_list.html
+// It's has higer per-vertex space overhead https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/using_adjacency_list.html#sec:choosing-graph-type
+
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS,
 	boost::property< boost::vertex_name_t, SShaderCodeVertex,
 	boost::property< boost::vertex_index_t, unsigned int > >,
