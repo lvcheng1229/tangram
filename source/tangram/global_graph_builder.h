@@ -25,7 +25,10 @@ struct SShaderCodeVertex
 	std::string debug_string;
 #endif
 
-	inline bool operator==(const SShaderCodeVertex& other) { return hash_value == other.hash_value; }
+	inline bool operator==(const SShaderCodeVertex& other) 
+	{ 
+		return hash_value == other.hash_value; 
+	}
 };
 
 struct SShaderCodeEdge
