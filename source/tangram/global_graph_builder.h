@@ -48,6 +48,12 @@ typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS,
 typedef boost::property_map< CGraph, boost::vertex_name_t >::type VertexNameMap;
 typedef boost::property_map< CGraph, boost::vertex_index_t >::type VertexIndexMap;
 
+struct SMcsResult
+{
+	std::set<size_t> graph_common_vtx_indices[2];
+	size_t subgraph_size;
+};
+
 class CGlobalGraphsBuilder
 {
 public:
@@ -57,6 +63,8 @@ public:
 #endif
 	void mergeGraphs();
 private:
+	void generateSubgraphRemoveMcs(CGraph& origin_graph, const std::set<size_t>& mcs_vtx_indices, const std::map<size_t, size_t>& pre_map_new_to_origin, CGraph& generated_subgraph, std::map<size_t, size_t>& map_new_to_origin);
+	void findCommonSubgraphMax(CGraph& grapha, CGraph& graphb, SMcsResult& mcsResult);
 
 	std::vector<CGraph> unmerged_graphs;
 

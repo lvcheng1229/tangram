@@ -520,97 +520,103 @@ private:
 
 int main()
 {
-	//{
-	//	struct TestShaderNode
-	//	{
-	//		unsigned int hash_value;
-	//		inline bool operator==(const TestShaderNode& other) { return hash_value == other.hash_value; }
-	//	};
-	//
-	//	typedef boost::adjacency_list< boost::listS, boost::vecS, boost::directedS,
-	//		boost::property< boost::vertex_name_t, TestShaderNode,
-	//		boost::property< boost::vertex_index_t, unsigned int > >,
-	//		boost::property< boost::edge_name_t, unsigned int > >
-	//		Graph2;
-	//
-	//	typedef boost::property_map< Graph2, boost::vertex_name_t >::type VertexNameMap;
-	//
-	//	// Test maximum and unique variants on known graphs
-	//	Graph2 graph_simple1, graph_simple2;
-	//	example_callback< Graph2 > user_callback(graph_simple1);
-	//
-	//	VertexNameMap vname_map_simple1 = get(boost::vertex_name, graph_simple1);
-	//	VertexNameMap vname_map_simple2 = get(boost::vertex_name, graph_simple2);
-	//
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{0});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{1});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{2});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{3});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{4});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{5});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{6});
-	//	put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{ 7 });
-	//
-	//	add_edge(0, 1, graph_simple1);
-	//	add_edge(0, 2, graph_simple1);
-	//	add_edge(1, 2, graph_simple1);
-	//	add_edge(1, 6, graph_simple1);
-	//	add_edge(6, 3, graph_simple1);
-	//	add_edge(3, 5, graph_simple1);
-	//	add_edge(5, 4, graph_simple1);
-	//
-	//	std::cout << "First graph:" << std::endl;
-	//	print_graph(graph_simple1);
-	//	std::cout << std::endl;
-	//
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{0});
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{1});
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{2});
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{3});
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{4});
-	//	put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{ 5 });
-	//
-	//	add_edge(0, 1, graph_simple2);
-	//	add_edge(0, 2, graph_simple2);
-	//	add_edge(1, 2, graph_simple2);
-	//	add_edge(1, 3, graph_simple2);
-	//	add_edge(3, 5, graph_simple2);
-	//	add_edge(5, 4, graph_simple2);
-	//
-	//	std::cout << "Second graph:" << std::endl;
-	//	print_graph(graph_simple2);
-	//	std::cout << std::endl;
-	//
-	//	// All subgraphs
-	//	std::cout << "mcgregor_common_subgraphs:" << std::endl;
-	//	mcgregor_common_subgraphs(graph_simple1, graph_simple2, true, user_callback,
-	//		vertices_equivalent(make_property_map_equivalent(
-	//			vname_map_simple1, vname_map_simple2)));
-	//	std::cout << std::endl;
-	//
-	//	// Unique subgraphs
-	//	std::cout << "mcgregor_common_subgraphs_unique:" << std::endl;
-	//	mcgregor_common_subgraphs_unique(graph_simple1, graph_simple2, true,
-	//		user_callback,
-	//		vertices_equivalent(make_property_map_equivalent(
-	//			vname_map_simple1, vname_map_simple2)));
-	//	std::cout << std::endl;
-	//
-	//	// Maximum subgraphs
-	//	std::cout << "mcgregor_common_subgraphs_maximum:" << std::endl;
-	//	mcgregor_common_subgraphs_maximum(graph_simple1, graph_simple2, true,
-	//		user_callback,
-	//		vertices_equivalent(make_property_map_equivalent(
-	//			vname_map_simple1, vname_map_simple2)));
-	//	std::cout << std::endl;
-	//
-	//	// Maximum, unique subgraphs
-	//	std::cout << "mcgregor_common_subgraphs_maximum_unique:" << std::endl;
-	//	mcgregor_common_subgraphs_maximum_unique(graph_simple1, graph_simple2, true,
-	//		user_callback,
-	//		vertices_equivalent(make_property_map_equivalent(
-	//			vname_map_simple1, vname_map_simple2)));
-	//}
+	{
+		struct TestShaderNode
+		{
+			unsigned int hash_value;
+			inline bool operator==(const TestShaderNode& other) { return hash_value == other.hash_value; }
+		};
+	
+		typedef boost::adjacency_list< boost::listS, boost::vecS, boost::directedS,
+			boost::property< boost::vertex_name_t, TestShaderNode,
+			boost::property< boost::vertex_index_t, unsigned int > >,
+			boost::property< boost::edge_name_t, unsigned int > >
+			Graph2;
+	
+		typedef boost::property_map< Graph2, boost::vertex_name_t >::type VertexNameMap;
+	
+		// Test maximum and unique variants on known graphs
+		Graph2 graph_simple1, graph_simple2;
+		example_callback< Graph2 > user_callback(graph_simple1);
+	
+		VertexNameMap vname_map_simple1 = get(boost::vertex_name, graph_simple1);
+		VertexNameMap vname_map_simple2 = get(boost::vertex_name, graph_simple2);
+	
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{0});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{1});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{2});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{3});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{4});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{5});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{6});
+		put(vname_map_simple1, add_vertex(graph_simple1), TestShaderNode{ 7 });
+	
+		add_edge(0, 1, graph_simple1);
+		add_edge(0, 2, graph_simple1);
+		add_edge(1, 2, graph_simple1);
+		add_edge(1, 6, graph_simple1);
+		add_edge(6, 5, graph_simple1);
+		add_edge(3, 5, graph_simple1);
+		add_edge(5, 4, graph_simple1);
+	
+		std::cout << "First graph:" << std::endl;
+		print_graph(graph_simple1);
+		std::cout << std::endl;
+	
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{0});
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{1});
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{2});
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{3});
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{4});
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{ 5 });
+
+		//**************
+		put(vname_map_simple2, add_vertex(graph_simple2), TestShaderNode{ 9 });
+	
+		add_edge(0, 1, graph_simple2);
+		add_edge(0, 2, graph_simple2);
+		add_edge(1, 2, graph_simple2);
+
+		add_edge(1, 6, graph_simple2);
+		add_edge(6, 5, graph_simple2);
+
+		add_edge(3, 5, graph_simple2);
+		add_edge(5, 4, graph_simple2);
+	
+		std::cout << "Second graph:" << std::endl;
+		print_graph(graph_simple2);
+		std::cout << std::endl;
+	
+		// All subgraphs
+		std::cout << "mcgregor_common_subgraphs:" << std::endl;
+		mcgregor_common_subgraphs(graph_simple1, graph_simple2, true, user_callback,
+			vertices_equivalent(make_property_map_equivalent(
+				vname_map_simple1, vname_map_simple2)));
+		std::cout << std::endl;
+	
+		// Unique subgraphs
+		std::cout << "mcgregor_common_subgraphs_unique:" << std::endl;
+		mcgregor_common_subgraphs_unique(graph_simple1, graph_simple2, true,
+			user_callback,
+			vertices_equivalent(make_property_map_equivalent(
+				vname_map_simple1, vname_map_simple2)));
+		std::cout << std::endl;
+	
+		// Maximum subgraphs
+		std::cout << "mcgregor_common_subgraphs_maximum:" << std::endl;
+		mcgregor_common_subgraphs_maximum(graph_simple1, graph_simple2, true,
+			user_callback,
+			vertices_equivalent(make_property_map_equivalent(
+				vname_map_simple1, vname_map_simple2)));
+		std::cout << std::endl;
+	
+		// Maximum, unique subgraphs
+		std::cout << "mcgregor_common_subgraphs_maximum_unique:" << std::endl;
+		mcgregor_common_subgraphs_maximum_unique(graph_simple1, graph_simple2, true,
+			user_callback,
+			vertices_equivalent(make_property_map_equivalent(
+				vname_map_simple1, vname_map_simple2)));
+	}
 
 	//{
 	//	MannualCodeBlockGenTest();
