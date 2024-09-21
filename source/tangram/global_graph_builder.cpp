@@ -480,146 +480,13 @@ public:
 	VertexNameMap vtx_name_map;
 };
 
-
-class CMergeGraphDFSVisitor : public boost::default_dfs_visitor
-{
-public:
-	CMergeGraphDFSVisitor(CGraph& ipt_new_graph, CGraph& ipt_graph_b, std::map<XXH64_hash_t, size_t>& ipt_vtx_hash_to_vtx_desc_a, std::set<size_t>& mcs_vertices_b, std::map<size_t, size_t>& mcs_vtx_desc_map_b2a) :
-		new_graph(ipt_new_graph),
-		m_graph_b(ipt_graph_b),
-		mcs_vertices_b(mcs_vertices_b),
-		mcs_vtx_desc_map_b2a(mcs_vtx_desc_map_b2a),
-		ipt_vtx_hash_to_vtx_desc_a(ipt_vtx_hash_to_vtx_desc_a)
-	{
-		vtx_name_map_b = get(boost::vertex_name, m_graph_b);
-		vtx_name_map_new_graph = get(boost::vertex_name, new_graph);
-	}
-
-	using Vertex = boost::graph_traits<CGraph>::vertex_descriptor;
-	using Edge = boost::graph_traits<CGraph>::edge_descriptor;
-
-	void start_vertex(Vertex vtx, const CGraph & graph_b)
-	{
-		size_t property_map_index = vtx;
-		const SShaderCodeVertex& shader_vtx = vtx_name_map_b[property_map_index];
-
-#if TANGRAM_DEBUG
-		std::cout << "start vertex: " << shader_vtx.debug_string << std::endl;
-#endif
-
-		st_vtx_descs_b.insert(property_map_index);
-	}
-
-	void discover_vertex(Vertex vtx_desc, const CGraph & graph_b)
-	{
-		const SShaderCodeVertex& shader_vtx = vtx_name_map_b[vtx_desc];
-
-#if TANGRAM_DEBUG
-		std::cout << shader_vtx.debug_string << std::endl;
-#endif
-
-		bool is_start_vertex = (st_vtx_descs_b.find(vtx_desc) != st_vtx_descs_b.end());
-		if (is_start_vertex)
-		{
-			auto start_vtx_iter = ipt_vtx_hash_to_vtx_desc_a.find(shader_vtx.hash_value);
-			if (start_vtx_iter != ipt_vtx_hash_to_vtx_desc_a.end())
-			{
-				// don't add
-				map_idx_b2ng[vtx_desc] = start_vtx_iter->second;
-			}
-			else
-			{
-				size_t mew_vtx_idx = add_vertex(new_graph); 
-				put(vtx_name_map_new_graph, mew_vtx_idx, shader_vtx);
-				map_idx_b2ng[vtx_desc] = mew_vtx_idx;
-			}
-		}
-		else
-		{
-			bool is_common_subgraph_vertices = isCommonSubGraphVerticesB(vtx_desc);
-			if (is_common_subgraph_vertices)
-			{
-				Vertex correspond_vtx_desc = mcs_vtx_desc_map_b2a.find(vtx_desc)->second;
-				map_idx_b2ng[vtx_desc] = correspond_vtx_desc;
-			}
-			else
-			{
-				size_t mew_vtx_idx = add_vertex(new_graph);
-				put(vtx_name_map_new_graph, mew_vtx_idx, shader_vtx);
-				map_idx_b2ng[vtx_desc] = mew_vtx_idx;
-
-				//for each input edges
-				for (auto& ipt_edge_vtx : input_edges_b[vtx_desc])
-				{
-					add_edge(map_idx_b2ng[ipt_edge_vtx], mew_vtx_idx, new_graph);
-				}
-
-				// for each output edges
-				auto es = out_edges(vtx_desc, graph_b);
-				for (auto iterator = es.first; iterator != es.second; iterator++)
-				{
-					size_t dst_vtx_desc = target(*iterator, graph_b);
-					if (!isCommonSubGraphVerticesB(dst_vtx_desc))
-					{
-						Vertex correspond_vtx_desc = mcs_vtx_desc_map_b2a.find(dst_vtx_desc)->second;
-						add_edge(mew_vtx_idx, correspond_vtx_desc, new_graph);
-					}
-				}
-			}
-		}
-
-		{
-			auto es = out_edges(vtx_desc, graph_b);
-
-			for (auto iterator = es.first; iterator != es.second; iterator++)
-			{
-				size_t dst_vtx_desc = target(*iterator, graph_b);
-				input_edges_b[dst_vtx_desc].push_back(vtx_desc);
-			}
-		}
-		
-	}
-
-	void examine_edge(Edge e, const CGraph & graph_b)const
-	{
-
-	}
-
-private:
-	bool isCommonSubGraphVerticesB(Vertex vtx_desc)
-	{
-		return mcs_vertices_b.find(vtx_desc) != mcs_vertices_b.end();
-	}
-
-	VertexNameMap vtx_name_map_b;
-	VertexNameMap vtx_name_map_new_graph;
-
-	CGraph& new_graph;
-	CGraph& m_graph_b;
-
-	// max common subgraph vertices of graph b 
-	const std::set<size_t>& mcs_vertices_b;
-
-	// max common subgraph map b to a
-	const std::map<size_t, size_t>& mcs_vtx_desc_map_b2a;
-
-	// only store start(input) vertex !!!! (avoid the repeated hash vertex)
-	const std::map<XXH64_hash_t, size_t>& ipt_vtx_hash_to_vtx_desc_a; 
-	
-	//start(input) vertex descriptors
-	std::set<size_t> st_vtx_descs_b;
-
-	//vertex propertry index map (from to new graph)
-	std::map<size_t, size_t>map_idx_b2ng; 
-
-	using SInputEdges = std::vector<size_t>;
-	std::map<size_t, SInputEdges> input_edges_b; // input edges of a vertex
-};
-
 class CGraphMerger
 {
 public:
-	CMergeGraphDFSVisitor(CGraph& ipt_new_graph, CGraph& ipt_graph_b, std::map<XXH64_hash_t, size_t>& ipt_vtx_hash_to_vtx_desc_a, std::set<size_t>& mcs_vertices_b, std::map<size_t, size_t>& mcs_vtx_desc_map_b2a) :
+	using Vertex = boost::graph_traits<CGraph>::vertex_descriptor;
+	using Edge = boost::graph_traits<CGraph>::edge_descriptor;
+
+	CGraphMerger(CGraph& ipt_new_graph, CGraph& ipt_graph_b, std::map<XXH64_hash_t, size_t>& ipt_vtx_hash_to_vtx_desc_a, std::set<size_t>& mcs_vertices_b, std::map<size_t, size_t>& mcs_vtx_desc_map_b2a) :
 		new_graph(ipt_new_graph),
 		m_graph_b(ipt_graph_b),
 		mcs_vertices_b(mcs_vertices_b),
@@ -628,24 +495,30 @@ public:
 	{
 		vtx_name_map_b = get(boost::vertex_name, m_graph_b);
 		vtx_name_map_new_graph = get(boost::vertex_name, new_graph);
-	}
 
-	using Vertex = boost::graph_traits<CGraph>::vertex_descriptor;
-	using Edge = boost::graph_traits<CGraph>::edge_descriptor;
+		CStartVertexVisitor ipt_vtx_visitor_b(m_graph_b, nullptr, &st_vtx_descs_b);
+		depth_first_search(m_graph_b, visitor(ipt_vtx_visitor_b));
 
-	void start_vertex(Vertex vtx, const CGraph& graph_b)
-	{
-		size_t property_map_index = vtx;
-		const SShaderCodeVertex& shader_vtx = vtx_name_map_b[property_map_index];
+		topological_sort(m_graph_b, std::back_inserter(topological_order_vertices));
 
 #if TANGRAM_DEBUG
-		std::cout << "start vertex: " << shader_vtx.debug_string << std::endl;
+		for (STopologicalOrderVetices::reverse_iterator vtx_desc_iter = topological_order_vertices.rbegin(); vtx_desc_iter != topological_order_vertices.rend(); ++vtx_desc_iter)
+		{
+			const SShaderCodeVertex& shader_vtx = vtx_name_map_b[*vtx_desc_iter];
+			std::cout << "topologic vertices order output:" << *vtx_desc_iter << " hash string:" << shader_vtx.debug_string << std::endl;
+		}
 #endif
-
-		st_vtx_descs_b.insert(property_map_index);
 	}
 
-	void discover_vertex(Vertex vtx_desc, const CGraph& graph_b)
+	void mergeGraph()
+	{
+		for (STopologicalOrderVetices::reverse_iterator vtx_desc_iter = topological_order_vertices.rbegin(); vtx_desc_iter != topological_order_vertices.rend(); ++vtx_desc_iter)
+		{
+			iteratorVertex(*vtx_desc_iter, m_graph_b);
+		}
+	}
+
+	void iteratorVertex(Vertex vtx_desc, const CGraph& graph_b)
 	{
 		const SShaderCodeVertex& shader_vtx = vtx_name_map_b[vtx_desc];
 
@@ -667,6 +540,18 @@ public:
 				size_t mew_vtx_idx = add_vertex(new_graph);
 				put(vtx_name_map_new_graph, mew_vtx_idx, shader_vtx);
 				map_idx_b2ng[vtx_desc] = mew_vtx_idx;
+
+				// for each output edges
+				auto es = out_edges(vtx_desc, graph_b);
+				for (auto iterator = es.first; iterator != es.second; iterator++)
+				{
+					size_t dst_vtx_desc = target(*iterator, graph_b);
+					if (isCommonSubGraphVerticesB(dst_vtx_desc))
+					{
+						Vertex correspond_vtx_desc = mcs_vtx_desc_map_b2a.find(dst_vtx_desc)->second;
+						add_edge(mew_vtx_idx, correspond_vtx_desc, new_graph);
+					}
+				}
 			}
 		}
 		else
@@ -686,7 +571,8 @@ public:
 				//for each input edges
 				for (auto& ipt_edge_vtx : input_edges_b[vtx_desc])
 				{
-					add_edge(map_idx_b2ng[ipt_edge_vtx], mew_vtx_idx, new_graph);
+					auto ipt_edge_vtx_a = map_idx_b2ng.find(ipt_edge_vtx)->second;
+					add_edge(ipt_edge_vtx_a, mew_vtx_idx, new_graph);
 				}
 
 				// for each output edges
@@ -694,7 +580,7 @@ public:
 				for (auto iterator = es.first; iterator != es.second; iterator++)
 				{
 					size_t dst_vtx_desc = target(*iterator, graph_b);
-					if (!isCommonSubGraphVerticesB(dst_vtx_desc))
+					if (isCommonSubGraphVerticesB(dst_vtx_desc))
 					{
 						Vertex correspond_vtx_desc = mcs_vtx_desc_map_b2a.find(dst_vtx_desc)->second;
 						add_edge(mew_vtx_idx, correspond_vtx_desc, new_graph);
@@ -712,11 +598,6 @@ public:
 				input_edges_b[dst_vtx_desc].push_back(vtx_desc);
 			}
 		}
-
-	}
-
-	void examine_edge(Edge e, const CGraph& graph_b)const
-	{
 
 	}
 
@@ -749,6 +630,8 @@ private:
 
 	using SInputEdges = std::vector<size_t>;
 	std::map<size_t, SInputEdges> input_edges_b; // input edges of a vertex
+
+	STopologicalOrderVetices topological_order_vertices;
 };
 
 CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
@@ -760,24 +643,15 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	CStartVertexVisitor ipt_vtx_visitor_a(*graph_a, &ipt_vtx_hash_to_vtx_desc_a, nullptr);
 	depth_first_search(*graph_a, visitor(ipt_vtx_visitor_a));
 
-	std::set<size_t> ipt_vertices_desc_b;
-	CStartVertexVisitor ipt_vtx_visitor_b(*graph_b, nullptr, &ipt_vertices_desc_b);
-	depth_first_search(*graph_b, visitor(ipt_vtx_visitor_b));
 
-	STopologicalOrderVetices topological_order_vertices;
-	topological_sort(*graph_b, std::back_inserter(topological_order_vertices));
-
-	for (STopologicalOrderVetices::reverse_iterator vtx_desc_iter = topological_order_vertices.rbegin(); vtx_desc_iter != topological_order_vertices.rend(); ++vtx_desc_iter)
-	{
-#if TANGRAM_DEBUG
-		std::cout << "topologic vertices order output:" << *vtx_desc_iter << std::endl;
-#endif
-
-	}
 
 	CGraph new_graph = *graph_a;
-	CMergeGraphDFSVisitor merge_graph_dfs_visitor(new_graph, *graph_b, ipt_vtx_visitor.ipt_vtx_hash_to_vtx_desc, mcs_result.graph_common_vtx_indices[1], mcs_result.vtx_desc_map_b2a);
-	depth_first_search(*graph_b, visitor(merge_graph_dfs_visitor));
+	CGraphMerger graph_merger(new_graph, *graph_b, ipt_vtx_hash_to_vtx_desc_a, mcs_result.graph_common_vtx_indices[1], mcs_result.vtx_desc_map_b2a);
+	graph_merger.mergeGraph();
+
+#if TANGRAM_DEBUG
+	visGraph(&new_graph);
+#endif
 
 	//查找最大公共子图的时候记录graph1 的最大公共子图的所有index
 
