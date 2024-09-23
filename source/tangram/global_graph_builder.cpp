@@ -44,58 +44,12 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 	}
 
 
-	// bug test
-	//graph_traits<CGraph>::vertex_iterator vi, vi_end, next;
-	//tie(vi, vi_end) = vertices(builded_graph);
-	//std::vector<size_t> removed_vertices;
-	//for (next = vi; vi != vi_end; vi = next) 
-	//{
-	//	++next;
-	//	size_t property_map_idx = *vi;
-	//
-	//	auto vtx_adj_vertices = adjacent_vertices(property_map_idx, builded_graph);
-	//
-	//	//non ajacent vertices
-	//	if (vtx_adj_vertices.first == vtx_adj_vertices.second)
-	//	{
-	//		removed_vertices.push_back(*vi);
-	//	}
-	//}
-	//
-	//for (auto& t : removed_vertices)
-	//{
-	//	remove_vertex(t, builded_graph);
-	//}
-
 	CGraph processed_graph;
 	{
-		//std::map<size_t, size_t>map_src_dst;
-
 		VertexNameMap new_map_simple1 = get(boost::vertex_name, processed_graph);
 
 		VertexIndexMap vertex_index_map = get(vertex_index, builded_graph);
 		VertexNameMap vertex_name_map = get(vertex_name, builded_graph);
-
-		//auto out_vetices = boost::vertices(builded_graph);
-		//for (auto vp = out_vetices; vp.first != vp.second; ++vp.first)
-		//{
-		//	size_t property_map_idx = *vp.first;
-		//
-		//	auto vtx_adj_vertices = adjacent_vertices(property_map_idx, builded_graph);
-		//	if (vtx_adj_vertices.first != vtx_adj_vertices.second)
-		//	{
-		//		//size_t  vtx_idx = vertex_index_map[property_map_idx];
-		//		SShaderCodeVertex& shader_code_vtx = vertex_name_map[property_map_idx];
-		//
-		//		size_t dst = add_vertex(processed_graph);
-		//		if (dst == 0)
-		//		{
-		//			std::cout << "aa";
-		//		}
-		//		put(new_map_simple1, dst, shader_code_vtx);
-		//		map_src_dst[property_map_idx] = dst;
-		//	}
-		//}
 		
 		std::map<size_t, size_t> map_src_dst2;// = map_src_dst;
 

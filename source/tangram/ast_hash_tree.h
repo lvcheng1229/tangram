@@ -4,6 +4,17 @@
 
 static constexpr int global_seed = 42;
 
+struct CHashEdge
+{
+	std::map<uint32_t, uint32_t> variable_map_pre_to_next;
+};
+
+// higher uint16 source verttex index
+// lower uint16 target vertex index
+// edge map
+using CHashVaiableMap = std::map <uint32_t, CHashEdge>;
+
+
 // record the symbol name in a seperate structure
 struct CHashNode
 {
@@ -24,9 +35,10 @@ struct CHashNode
 	size_t graph_vtx_idx; 
 
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
+	std::set<uint64_t> out_hash_nodes;
+
 	//std::vector<uint64_t> inout_hash_nodes; //inout hash node indices
 	//std::vector<uint64_t> out_hash_nodes;  //output hash node indices
-	std::set<uint64_t> out_hash_nodes;
 };
 
 class CScopeSymbolNameTraverser : public TIntermTraverser

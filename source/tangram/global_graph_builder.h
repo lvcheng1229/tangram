@@ -16,7 +16,14 @@
 //#include <boost/graph/mcgregor_common_subgraphs.hpp>
 //#include <boost/property_map/shared_array_property_map.hpp>
 
+struct SShaderCodeVertexInfomation
+{
+	// variable 1 name, variable 2 name. etc. (in order)
+	std::vector<std::string> variable_names;
 
+	// shader vertex sequence
+
+};
 
 struct SShaderCodeVertex
 {
@@ -31,6 +38,13 @@ struct SShaderCodeVertex
 	}
 };
 
+struct SShaderCodeEdge
+{
+	// map next shader vertex's input varible index to previous vertex's output variable index
+	std::map<uint32_t, uint32_t> variable_map_next_to_pre;
+	std::map<uint32_t, uint32_t> variable_map_pre_to_next;
+};
+
 // Use boost::listS to store the vertices since execute 'remove vertices' causing 'Iterator and Descriptor Stability/Invalidation' https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/adjacency_list.html
 // It's has higer per-vertex space overhead https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/using_adjacency_list.html#sec:choosing-graph-type
 
@@ -40,7 +54,7 @@ struct SShaderCodeVertex
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS,
 	boost::property< boost::vertex_name_t, SShaderCodeVertex,
 	boost::property< boost::vertex_index_t, unsigned int > >,
-	boost::property< boost::edge_name_t, unsigned int> >
+	boost::property< boost::edge_name_t, SShaderCodeEdge> >
 	CGraph;
 
 typedef boost::property_map< CGraph, boost::vertex_name_t >::type VertexNameMap;
