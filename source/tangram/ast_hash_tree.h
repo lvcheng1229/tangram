@@ -6,7 +6,7 @@ static constexpr int global_seed = 42;
 
 struct CHashEdge
 {
-	std::map<uint32_t, uint32_t> variable_map_pre_to_next;
+	std::map<uint32_t, uint32_t> variable_source_index;
 };
 
 // higher uint16 source verttex index
@@ -37,6 +37,10 @@ struct CHashNode
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	std::set<uint64_t> out_hash_nodes;
 
+	std::vector<XXH32_hash_t> ordered_input_symbols_hash;
+	std::unordered_map<XXH32_hash_t, uint32_t> ipt_symbol_name_order_map;
+	std::unordered_map<XXH32_hash_t, uint32_t> opt_symbol_name_order_map;
+
 	//std::vector<uint64_t> inout_hash_nodes; //inout hash node indices
 	//std::vector<uint64_t> out_hash_nodes;  //output hash node indices
 };
@@ -51,8 +55,11 @@ public:
 
 	virtual void visitSymbol(TIntermSymbol* node);
 	inline uint32_t getSymbolIndex(XXH32_hash_t symbol_hash) { return symbol_index.find(symbol_hash)->second; };
+	inline std::unordered_map<XXH32_hash_t, uint32_t>& getSymbolMap() { return symbol_index; };
+	inline std::vector<XXH32_hash_t>& getSymbolHashOrdered() { return symbol_hash_ordered; };
 private:
 	int symbol_idx = 0;
+	std::vector<XXH32_hash_t> symbol_hash_ordered;
 	std::unordered_map<XXH32_hash_t, uint32_t>symbol_index;
 };
 
@@ -180,7 +187,7 @@ private:
 				}
 			}
 
-			// non-assign scope
+			// non-assign scope example: loop / switch
 			if ((!op_assign_context.visit_input_symbols) && (!op_assign_context.visit_output_symbols) && (no_assign_context.symbol_inout_hashmap.size() != 0))
 			{
 				XXH32_hash_t symbol_name_inout_hash = XXH32(symbol_name.c_str(), symbol_name.length(), global_seed);
@@ -230,11 +237,13 @@ private:
 
 	std::set<long long> declared_symbols_id;
 
-
 	TSubScopeTraverser subscope_tranverser;
 	TSymbolScopeTraverser symbol_scope_traverser;
 
 	CScopeSymbolNameTraverser scope_symbol_traverser;
+
+	CHashVaiableMap hash_varible_map;
+
 #if TANGRAM_DEBUG
 	TAstToGLTraverser debug_traverser;
 #endif

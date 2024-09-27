@@ -11,6 +11,7 @@ void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 	if (iter == symbol_index.end())
 	{
 		symbol_index[hash_value] = symbol_idx;
+		symbol_hash_ordered.push_back(hash_value);
 		symbol_idx++;
 	}
 }
@@ -231,6 +232,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 #if TANGRAM_DEBUG
 				func_hash_node.debug_string = hash_string;
 #endif
+				func_hash_node.ipt_symbol_name_order_map = scope_symbol_traverser.getSymbolMap();
 				getAndUpdateInputHashNodes(func_hash_node);
 
 				{
@@ -950,13 +952,6 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 	bool is_declared = false;
 
-#if TANGRAM_DEBUG
-	if (node->getName() == "_69")
-	{
-		int debugVar = 1;
-	}
-#endif
-
 	{
 		long long symbol_id = node->getId();
 		auto iter = declared_symbols_id.find(symbol_id);
@@ -1002,6 +997,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					debug_traverser.appendDebugString(hash_string);
 					debug_traverser.appendDebugString("]");
 #endif
+					linker_node.opt_symbol_name_order_map[hash_value] = 0;
 					tree_hash_nodes.push_back(linker_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 				}
@@ -1022,6 +1018,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					debug_traverser.appendDebugString(mem_name);
 					debug_traverser.appendDebugString("]");
 #endif
+					linker_node.opt_symbol_name_order_map[hash_value] = 0;
 					tree_hash_nodes.push_back(linker_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 				}
@@ -1038,6 +1035,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				debug_traverser.appendDebugString(hash_string);
 				debug_traverser.appendDebugString("]");
 #endif
+				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1052,6 +1050,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				debug_traverser.appendDebugString(hash_string);
 				debug_traverser.appendDebugString("]");
 #endif
+				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1069,6 +1068,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				debug_traverser.appendDebugString(hash_string);
 				debug_traverser.appendDebugString("]");
 #endif
+				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1085,6 +1085,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #if TANGRAM_DEBUG
 					symbol_hash_node.debug_string = global_variable;
 #endif
+					symbol_hash_node.opt_symbol_name_order_map[out_scope_hash] = 0;
 					tree_hash_nodes.push_back(symbol_hash_node);
 					hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
 					builder_context.addUniqueHashValue(out_scope_hash, node->getName());
@@ -1118,13 +1119,14 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 			{
 				XXH64_hash_t out_scope_hash = name_hash;
 
-				CHashNode symbol_hash_node;
-				symbol_hash_node.hash_value = out_scope_hash;
-#if TANGRAM_DEBUG
-				symbol_hash_node.debug_string = hash_string;
-#endif
-				tree_hash_nodes.push_back(symbol_hash_node);
-				hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
+//				CHashNode symbol_hash_node;
+//				symbol_hash_node.hash_value = out_scope_hash;
+//				symbol_hash_node.ipt_symbol_name_order_map = scope_symbol_traverser.getSymbolMap();
+//#if TANGRAM_DEBUG
+//				symbol_hash_node.debug_string = hash_string;
+//#endif
+//				tree_hash_nodes.push_back(symbol_hash_node);
+//				hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
 				builder_context.addUniqueHashValue(out_scope_hash, node->getName());
 			}
 		}
