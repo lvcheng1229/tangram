@@ -1,6 +1,9 @@
 #include "ast_hash_tree.h"
 #include "global_graph_builder.h"
 
+// todo: 自增 自减 修改了输入变量，这个需要加入到输出变量里
+
+// 赋值语句 和 Linker Node 都只有一个输出（不考虑自增自减）
 
 // find and store the symbols in the scope in order
 void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
@@ -232,8 +235,9 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 #if TANGRAM_DEBUG
 				func_hash_node.debug_string = hash_string;
 #endif
-				func_hash_node.ipt_symbol_name_order_map = scope_symbol_traverser.getSymbolMap();
+				builder_context.buildInputOutputSymbolIndexMap(func_hash_node);
 				getAndUpdateInputHashNodes(func_hash_node);
+				updateLastAssignHashmap(func_hash_node);
 
 				{
 					tree_hash_nodes.push_back(func_hash_node);
@@ -249,7 +253,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				debug_traverser.decrementDepth();
 				debug_traverser.visitBinary(EvPostVisit, node);
 #endif
-				updateLastAssignHashmap(func_hash_node);
+				
 			}
 			else
 			{
@@ -1494,8 +1498,12 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 #if TANGRAM_DEBUG
 	func_hash_node.debug_string = hash_string;
 #endif
+
+	builder_context.buildInputOutputSymbolIndexMap(func_hash_node);
+
 	// get input hash values
 	getAndUpdateInputHashNodes(func_hash_node);
+	updateLastAssignHashmap(func_hash_node);
 
 	{
 		tree_hash_nodes.push_back(func_hash_node);
@@ -1510,8 +1518,6 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 	debug_traverser.appendDebugString("\n");
 	debug_traverser.visit_state.EnableAllVisitState();
 #endif
-
-	updateLastAssignHashmap(func_hash_node);
 }
 
 void CASTHashTreeBuilder::generateSymbolInoutMap(int scope_min_line)

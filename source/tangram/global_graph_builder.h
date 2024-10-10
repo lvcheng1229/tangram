@@ -6,6 +6,7 @@
 #include "xxhash.h"
 #include "common.h"
 #include "ast_hash_tree.h"
+#include "variable_name_manager.h"
 
 #include <boost/graph/adjacency_list.hpp>
 
@@ -19,7 +20,17 @@
 struct SShaderCodeVertexInfomation
 {
 	// variable 1 name, variable 2 name. etc. (in order)
-	std::vector<std::string> variable_names;
+	int input_variable_num; //用于ipt_variable_names的resize
+	int output_variable_num;//用于遍历所有输出变量
+
+	std::vector<std::string> ipt_variable_names; // input variables
+	std::vector<std::string> opt_variable_names; // output variables
+
+	// 如果第 m 个输出变量是输入输出变量，将该变量映射到n，n是第几个输入变量
+	std::map<int, int> inout_variable_in2out;
+
+	// 和上面反过来
+	std::map<int, int> inout_variable_out2in;
 
 	// shader vertex sequence
 
@@ -28,6 +39,7 @@ struct SShaderCodeVertexInfomation
 struct SShaderCodeVertex
 {
 	XXH64_hash_t hash_value;
+	SShaderCodeVertexInfomation vtx_info;
 #if TANGRAM_DEBUG
 	std::string debug_string;
 #endif
@@ -42,6 +54,8 @@ struct SShaderCodeEdge
 {
 	// map next shader vertex's input varible index to previous vertex's output variable index
 	std::map<uint32_t, uint32_t> variable_map_next_to_pre;
+
+	// 
 	std::map<uint32_t, uint32_t> variable_map_pre_to_next;
 };
 
@@ -60,6 +74,12 @@ typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS,
 typedef boost::property_map< CGraph, boost::vertex_name_t >::type VertexNameMap;
 typedef boost::property_map< CGraph, boost::vertex_index_t >::type VertexIndexMap;
 typedef std::vector< boost::graph_traits<CGraph>::vertex_descriptor > STopologicalOrderVetices;
+typedef boost::property_map< CGraph, boost::edge_name_t >::type EdgeNameMap;
+
+typedef boost::graph_traits<CGraph>::vertex_descriptor SGraphVertexDesc;
+typedef boost::graph_traits<CGraph>::edge_descriptor SGraphEdgeDesc;
+
+void buildGraphVertexInputEdges(CGraph& graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
 
 struct SMcsResult
 {
@@ -76,6 +96,7 @@ public:
 	void visGraph(CGraph* graph);
 #endif
 	void mergeGraphs();
+
 private:
 	void generateSubgraphRemoveMcs(CGraph& origin_graph, const std::set<size_t>& mcs_vtx_indices, const std::map<size_t, size_t>& pre_map_new_to_origin, CGraph& generated_subgraph, std::map<size_t, size_t>& map_new_to_origin);
 	void findCommonSubgraphMax(CGraph& grapha, CGraph& graphb, SMcsResult& mcsResult);
@@ -84,7 +105,10 @@ private:
 
 	CGraph merged_graphs;
 
+	void variableRename(CGraph* graph);
 	CGraph mergeGraph(CGraph* graph_a, CGraph* graph_b);
+	
+	CVariableNameManager variable_name_manager;
 
 #if TANGRAM_DEBUG
 	int graphviz_debug_idx;

@@ -4,6 +4,9 @@
 
 static constexpr int global_seed = 42;
 
+
+
+// 第 i个输入symbol所对应的上个节点的第j个输出
 struct CHashEdge
 {
 	std::map<uint32_t, uint32_t> variable_source_index;
@@ -12,6 +15,8 @@ struct CHashEdge
 // higher uint16 source verttex index
 // lower uint16 target vertex index
 // edge map
+// 
+// 高 16 bit表示 输入顶点的全局索引，低16bit表示输出顶点的全局索引
 using CHashVaiableMap = std::map <uint32_t, CHashEdge>;
 
 
@@ -37,9 +42,12 @@ struct CHashNode
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	std::set<uint64_t> out_hash_nodes;
 
-	std::vector<XXH32_hash_t> ordered_input_symbols_hash;
-	std::unordered_map<XXH32_hash_t, uint32_t> ipt_symbol_name_order_map;
-	std::unordered_map<XXH32_hash_t, uint32_t> opt_symbol_name_order_map;
+	// for variable rename
+	std::vector<XXH64_hash_t> ordered_input_symbols_hash;
+	std::unordered_map<XXH64_hash_t, uint32_t> ipt_symbol_name_order_map; // 表示某Hash值的Symbol是当前节点的第几个输入
+
+	// 表示某 Hash值的 Symbol 是当前节点的第几个输出，用于下一个节点构建 ipt_symbol_name_order_map
+	std::unordered_map<XXH64_hash_t, uint32_t> opt_symbol_name_order_map;
 
 	//std::vector<uint64_t> inout_hash_nodes; //inout hash node indices
 	//std::vector<uint64_t> out_hash_nodes;  //output hash node indices
@@ -55,7 +63,10 @@ public:
 
 	virtual void visitSymbol(TIntermSymbol* node);
 	inline uint32_t getSymbolIndex(XXH32_hash_t symbol_hash) { return symbol_index.find(symbol_hash)->second; };
+	
+	// 返回symbol map， symbol map是所有符号的索引，包括输入符号和输出符号
 	inline std::unordered_map<XXH32_hash_t, uint32_t>& getSymbolMap() { return symbol_index; };
+
 	inline std::vector<XXH32_hash_t>& getSymbolHashOrdered() { return symbol_hash_ordered; };
 private:
 	int symbol_idx = 0;
@@ -135,7 +146,6 @@ private:
 		};
 		SOpAssignContext op_assign_context;
 
-
 		struct SNoAssignContext
 		{
 			// 0 pre scope symbol
@@ -195,7 +205,7 @@ private:
 				if (iter != no_assign_context.symbol_inout_hashmap.end())
 				{
 					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_inout_hash];
-					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && no_assign_context.visit_assigned_symbols) // output symbols
+					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && no_assign_context.visit_assigned_symbols) // output( state = 1 ) symbols or inout symbols( state = 2 )
 					{
 						for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
 						{
@@ -206,7 +216,8 @@ private:
 						}
 						output_hash_value.push_back(hash);
 					}
-					else if (symbol_inout_state == 2 || symbol_inout_state == 0) // input symbols
+					
+					if (symbol_inout_state == 2 || symbol_inout_state == 0) // input symbols( state = 0) or inout symbols( state = 2 )
 					{
 						for (uint32_t idx = 0; idx < input_hash_value.size(); idx++)
 						{
@@ -221,8 +232,24 @@ private:
 			}
 		}
 
+		// 获得所有输出Symbol的HashValue，用于更新某个Symbol上一个被赋值是在哪个节点
 		inline std::vector<XXH64_hash_t>& getOutputHashValues() { return output_hash_value; }
 		inline std::vector<XXH64_hash_t>& getInputHashValues() { return input_hash_value; }
+
+		// 用于变量重命名，标记某个symbol是第几个输出，第几个输入
+		inline void buildInputOutputSymbolIndexMap(CHashNode& hash_node)
+		{
+			hash_node.ordered_input_symbols_hash = input_hash_value;
+			for (int idx = 0; idx < input_hash_value.size(); idx++)
+			{
+				hash_node.ipt_symbol_name_order_map[input_hash_value[idx]] = idx;
+			}
+
+			for (int idx = 0; idx < output_hash_value.size(); idx++)
+			{
+				hash_node.opt_symbol_name_order_map[output_hash_value[idx]] = idx;
+			}
+		}
 
 	private:
 		// input symbol hash value and output symbol hash value
