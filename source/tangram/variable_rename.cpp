@@ -1,5 +1,4 @@
 #include "global_graph_builder.h"
-#include "graphviz.h"
 #include "tangram_utility.h"
 
 #include <fstream>

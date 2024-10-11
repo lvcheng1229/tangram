@@ -7,6 +7,7 @@
 #include "common.h"
 #include "ast_hash_tree.h"
 #include "variable_name_manager.h"
+#include "ast_node_recursive_copy.h"
 
 #include <boost/graph/adjacency_list.hpp>
 
@@ -133,5 +134,6 @@ private:
 
 void initGlobalShaderGraphBuild();
 void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
+CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy();
 void buildGlobalShaderGraph();
 void releaseGlobalShaderGraph();

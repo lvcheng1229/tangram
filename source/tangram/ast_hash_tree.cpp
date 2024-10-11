@@ -2,7 +2,6 @@
 #include "global_graph_builder.h"
 
 // todo: 自增 自减 修改了输入变量，这个需要加入到输出变量里
-
 // 赋值语句 和 Linker Node 都只有一个输出（不考虑自增自减）
 
 // find and store the symbols in the scope in order
@@ -238,7 +237,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				builder_context.buildInputOutputSymbolIndexMap(func_hash_node);
 				getAndUpdateInputHashNodes(func_hash_node);
 				updateLastAssignHashmap(func_hash_node);
-
+				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->binaryCopy(node);
 				{
 					tree_hash_nodes.push_back(func_hash_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;

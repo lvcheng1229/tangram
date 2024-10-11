@@ -37,6 +37,8 @@ struct CHashNode
 	XXH64_hash_t hash_value;
 	XXH64_hash_t combined_hash_value; // combined with in out hash value
 
+	TIntermNode* interm_node;
+
 	size_t graph_vtx_idx; 
 
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices

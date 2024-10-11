@@ -1,5 +1,4 @@
 #include "global_graph_builder.h"
-#include "graphviz.h"
 #include "tangram_utility.h"
 
 #include <fstream>
@@ -22,7 +21,7 @@
 // 只有一个节点，并且不相连的情况
 
 static CGlobalGraphsBuilder* global_graph_builder = nullptr;
-
+static CGlobalAstNodeRecursiveCopy* global_ast_node_recursive_copy = nullptr;
 using namespace tangram;
 using namespace boost;
 
@@ -775,6 +774,7 @@ void initGlobalShaderGraphBuild()
 	if (global_graph_builder == nullptr)
 	{
 		global_graph_builder = new CGlobalGraphsBuilder();
+		global_ast_node_recursive_copy = new CGlobalAstNodeRecursiveCopy();
 	}
 }
 
@@ -786,6 +786,11 @@ void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_
 	}
 
 	global_graph_builder->addHashDependencyGraph(hash_dependency_graphs, shader_id);
+}
+
+CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy()
+{
+	return global_ast_node_recursive_copy;
 }
 
 void buildGlobalShaderGraph()
