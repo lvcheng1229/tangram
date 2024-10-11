@@ -34,12 +34,26 @@ struct SShaderCodeVertexInfomation
 
 	// shader vertex sequence
 
+	// 该顶点所有相关联的shader ID
+	std::vector<int> related_shaders;
 };
+
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+	std::hash<T> hasher;
+	seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
 
 struct SShaderCodeVertex
 {
 	XXH64_hash_t hash_value;
 	SShaderCodeVertexInfomation vtx_info;
+	
+	// for graph partition
+	std::size_t vertex_shader_ids_hash;
+	int code_block_index;
+
 #if TANGRAM_DEBUG
 	std::string debug_string;
 #endif
@@ -91,9 +105,9 @@ struct SMcsResult
 class CGlobalGraphsBuilder
 {
 public:
-	void addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs);
+	void addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
 #if TANGRAM_DEBUG
-	void visGraph(CGraph* graph);
+	void visGraph(CGraph* graph, bool visualize_symbol_name = false, bool visualize_shader_id = false, bool visualize_graph_partition = false);
 #endif
 	void mergeGraphs();
 
@@ -105,7 +119,9 @@ private:
 
 	CGraph merged_graphs;
 
-	void variableRename(CGraph* graph);
+	void variableRename(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
+	void graphPartition(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
+
 	CGraph mergeGraph(CGraph* graph_a, CGraph* graph_b);
 	
 	CVariableNameManager variable_name_manager;
@@ -116,6 +132,6 @@ private:
 };
 
 void initGlobalShaderGraphBuild();
-void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs);
+void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
 void buildGlobalShaderGraph();
 void releaseGlobalShaderGraph();

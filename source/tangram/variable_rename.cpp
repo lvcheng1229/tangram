@@ -109,7 +109,7 @@ private:
 	std::set<SGraphVertexDesc> node_found;
 };
 
-void CGlobalGraphsBuilder::variableRename(CGraph* graph)
+void CGlobalGraphsBuilder::variableRename(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges)
 {
 	STopologicalOrderVetices topological_order_vertices;
 	topological_sort(*graph, std::back_inserter(topological_order_vertices));
@@ -121,9 +121,6 @@ void CGlobalGraphsBuilder::variableRename(CGraph* graph)
 		shader_code_vtx.vtx_info.ipt_variable_names.resize(shader_code_vtx.vtx_info.input_variable_num);
 		shader_code_vtx.vtx_info.opt_variable_names.resize(shader_code_vtx.vtx_info.output_variable_num);
 	}
-
-	std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>> vertex_input_edges;
-	buildGraphVertexInputEdges(*graph, vertex_input_edges);
 
 	for (STopologicalOrderVetices::reverse_iterator vtx_desc_iter = topological_order_vertices.rbegin(); vtx_desc_iter != topological_order_vertices.rend(); ++vtx_desc_iter)
 	{

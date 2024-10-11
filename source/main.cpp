@@ -381,7 +381,7 @@ void TestSingleASTToHashTree()
 	LoadBuffer(dict_buffer, shader_path);
 	int size_code = dict_buffer.size();
 
-	ast_to_hash_treel((const char* const*)dict_buffer.data(), &size_code);
+	ast_to_hash_treel((const char* const*)dict_buffer.data(), &size_code,0);
 	finalizeAstToHashTree();
 }
 
@@ -440,7 +440,7 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 			}
 			else
 			{
-				bool result = ast_to_hash_treel((const char* const*)(shader_code_decompressed_data.data()), &code_size);
+				bool result = ast_to_hash_treel((const char* const*)(shader_code_decompressed_data.data()), &code_size, idx);
 				if (result)
 				{
 					test_number++;

@@ -1632,7 +1632,7 @@ void finalizeAstToHashTree()
 	FinalizeProcess();
 }
 
-bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLengths)
+bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLengths, int shader_id)
 {
 	int shader_size = *shaderLengths;
 	int sharp_pos = 0;
@@ -1713,7 +1713,7 @@ bool ast_to_hash_treel(const char* const* shaderStrings, const int* shaderLength
 		CASTHashTreeBuilder hash_tree_builder;
 		hash_tree_builder.preTranverse(intermediate);
 		intermediate->getTreeRoot()->traverse(&hash_tree_builder);
-		addHashedGraphToGlobalGraphBuilder(hash_tree_builder.getTreeHashNodes());
+		addHashedGraphToGlobalGraphBuilder(hash_tree_builder.getTreeHashNodes(), shader_id);
 	}
  	return true;
 }

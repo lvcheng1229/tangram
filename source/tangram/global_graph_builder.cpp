@@ -42,7 +42,7 @@ void buildGraphVertexInputEdges(CGraph& graph, std::map<SGraphVertexDesc, std::v
 	}
 }
 
-void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs)
+void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_dependency_graphs, int shader_id)
 {
 	CGraph builded_graph;
 	VertexNameMap vtx_name_map = get(boost::vertex_name, builded_graph);
@@ -64,8 +64,14 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 				shader_code_info.inout_variable_out2in[out_iter.second] = input_iter->second;
 			}
 		}
+		shader_code_info.related_shaders.push_back(shader_id);
 		
-		put(vtx_name_map, iter.graph_vtx_idx, SShaderCodeVertex{ iter.hash_value,shader_code_info,iter.debug_string.c_str() });
+		SShaderCodeVertex shader_code_vertex;
+		shader_code_vertex.hash_value = iter.hash_value;
+		shader_code_vertex.vtx_info = shader_code_info;
+		shader_code_vertex.debug_string = iter.debug_string.c_str();
+
+		put(vtx_name_map, iter.graph_vtx_idx, shader_code_vertex);
 	}
 
 	for (const auto& iter : hash_dependency_graphs)
@@ -159,7 +165,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 }
 
 #if TANGRAM_DEBUG
-void CGlobalGraphsBuilder::visGraph(CGraph* graph)
+void CGlobalGraphsBuilder::visGraph(CGraph* graph, bool visualize_symbol_name, bool visualize_shader_id, bool visualize_graph_partition)
 {
 	graphviz_debug_idx++;
 
@@ -185,30 +191,62 @@ void CGlobalGraphsBuilder::visGraph(CGraph* graph)
 
 			SShaderCodeVertexInfomation& vtx_info = shader_code_vtx.vtx_info;
 
-			if (vtx_info.ipt_variable_names.size() != 0 || vtx_info.opt_variable_names.size() != 0)
+			if (visualize_symbol_name)
+			{
+				if (vtx_info.ipt_variable_names.size() != 0 || vtx_info.opt_variable_names.size() != 0)
+				{
+					out_dot_file += "\n";
+				}
+
+				if (vtx_info.ipt_variable_names.size() > 0)
+				{
+					out_dot_file += "input symbols name:\n";
+					for (int ipt_symbol_idx = 0; ipt_symbol_idx < vtx_info.ipt_variable_names.size(); ipt_symbol_idx++)
+					{
+						out_dot_file += std::format("input symbol {0}: {1}\n", ipt_symbol_idx, vtx_info.ipt_variable_names[ipt_symbol_idx]);
+					}
+				}
+
+				if (vtx_info.opt_variable_names.size() > 0)
+				{
+					out_dot_file += "ouput symbols name:\n";
+					for (int opt_symbol_idx = 0; opt_symbol_idx < vtx_info.opt_variable_names.size(); opt_symbol_idx++)
+					{
+						out_dot_file += std::format("output symbol {0}: {1}\n", opt_symbol_idx, vtx_info.opt_variable_names[opt_symbol_idx]);
+					}
+				}
+			}
+
+			if (visualize_shader_id)
 			{
 				out_dot_file += "\n";
-			}
-
-			if (vtx_info.ipt_variable_names.size() > 0)
-			{
-				out_dot_file += "input symbols name:\n";
-				for (int ipt_symbol_idx = 0; ipt_symbol_idx < vtx_info.ipt_variable_names.size(); ipt_symbol_idx++)
+				out_dot_file += "Shader IDs: ";
+				for (int shader_id_idx = 0; shader_id_idx < vtx_info.related_shaders.size(); shader_id_idx++)
 				{
-					out_dot_file += std::format("input symbol {0}: {1}\n", ipt_symbol_idx, vtx_info.ipt_variable_names[ipt_symbol_idx]);
+					out_dot_file += std::to_string(vtx_info.related_shaders[shader_id_idx]);
+					out_dot_file += " ";
 				}
 			}
 
-			if (vtx_info.opt_variable_names.size() > 0)
+			if (visualize_graph_partition)
 			{
-				out_dot_file += "ouput symbols name:\n";
-				for (int opt_symbol_idx = 0; opt_symbol_idx < vtx_info.opt_variable_names.size(); opt_symbol_idx++)
-				{
-					out_dot_file += std::format("output symbol {0}: {1}\n", opt_symbol_idx, vtx_info.opt_variable_names[opt_symbol_idx]);
-				}
+				out_dot_file += "\n";
+				out_dot_file += "Code Block Index: ";
+				out_dot_file += std::to_string(shader_code_vtx.code_block_index);
 			}
+			
 
-			out_dot_file += "\"]\n";
+			out_dot_file += "\"";
+			if (visualize_shader_id)
+			{
+				std::hash<int> int_hash;
+				std::size_t hash_value = int_hash(shader_code_vtx.code_block_index);
+				char red = (hash_value & 0xFF); red = red < 120 ? (red * 2) : red;
+				char green = ((hash_value >> 8)& 0xFF); green = green < 80 ? (green * 2) : green;
+				char blue = (hash_value >> 16)& 0xFF; blue = blue < 60 ? (blue * 2) : blue;
+				out_dot_file += std::format(",style=\"filled\",color = \"#{:x}{:x}{:x}\"", red, green, blue);
+			}
+			out_dot_file += " ]\n";
 		}
 	}
 	
@@ -558,6 +596,7 @@ public:
 	void iteratorVertex(Vertex vtx_desc, const CGraph& graph_b)
 	{
 		const SShaderCodeVertex& shader_vtx = vtx_name_map_b[vtx_desc];
+		const std::vector<int>& graphb_vertex_related_shaders = shader_vtx.vtx_info.related_shaders;
 
 #if TANGRAM_DEBUG
 		std::cout << shader_vtx.debug_string << std::endl;
@@ -571,6 +610,9 @@ public:
 			{
 				// don't add
 				map_idx_b2ng[vtx_desc] = start_vtx_iter->second;
+				SShaderCodeVertex& merged_shader_code_vertex = vtx_name_map_new_graph[start_vtx_iter->second];
+				std::vector<int>& merged_vertex_related_shaders = merged_shader_code_vertex.vtx_info.related_shaders;
+				merged_vertex_related_shaders.insert(merged_vertex_related_shaders.end(), graphb_vertex_related_shaders.begin(), graphb_vertex_related_shaders.end());
 			}
 			else
 			{
@@ -598,6 +640,9 @@ public:
 			if (is_common_subgraph_vertices)
 			{
 				Vertex correspond_vtx_desc = mcs_vtx_desc_map_b2a.find(vtx_desc)->second;
+				SShaderCodeVertex& merged_shader_code_vertex = vtx_name_map_new_graph[correspond_vtx_desc];
+				std::vector<int>& merged_vertex_related_shaders = merged_shader_code_vertex.vtx_info.related_shaders;
+				merged_vertex_related_shaders.insert(merged_vertex_related_shaders.end(), graphb_vertex_related_shaders.begin(), graphb_vertex_related_shaders.end());
 				map_idx_b2ng[vtx_desc] = correspond_vtx_desc;
 			}
 			else
@@ -697,10 +742,13 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	CGraphMerger graph_merger(new_graph, *graph_b, ipt_vtx_hash_to_vtx_desc_a, mcs_result.graph_common_vtx_indices[1], mcs_result.vtx_desc_map_b2a);
 	graph_merger.mergeGraph();
 
-	variableRename(&new_graph);
+	std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>> vertex_input_edges;
+	buildGraphVertexInputEdges(new_graph, vertex_input_edges);
+	variableRename(&new_graph, vertex_input_edges);
+	graphPartition(&new_graph, vertex_input_edges);
 
 #if TANGRAM_DEBUG
-	visGraph(&new_graph);
+	visGraph(&new_graph, false, true, true);
 #endif
 	//查找最大公共子图的时候记录graph1 的最大公共子图的所有index
 
@@ -730,14 +778,14 @@ void initGlobalShaderGraphBuild()
 	}
 }
 
-void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs)
+void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id)
 {
 	if (global_graph_builder == nullptr)
 	{
 		assert(false && "global_graph_builder == nullptr");
 	}
 
-	global_graph_builder->addHashDependencyGraph(hash_dependency_graphs);
+	global_graph_builder->addHashDependencyGraph(hash_dependency_graphs, shader_id);
 }
 
 void buildGlobalShaderGraph()
