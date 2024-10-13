@@ -237,7 +237,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				builder_context.buildInputOutputSymbolIndexMap(func_hash_node);
 				getAndUpdateInputHashNodes(func_hash_node);
 				updateLastAssignHashmap(func_hash_node);
-				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->binaryCopy(node);
+				//node->traverse(getGlobalAstNodeRecursiveCopy());
+				//func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
 				{
 					tree_hash_nodes.push_back(func_hash_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;

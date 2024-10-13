@@ -747,7 +747,7 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	graphPartition(&new_graph, vertex_input_edges);
 
 #if TANGRAM_DEBUG
-	visGraph(&new_graph, false, true, true);
+	visGraph(&new_graph, true, false, false);
 #endif
 	//查找最大公共子图的时候记录graph1 的最大公共子图的所有index
 

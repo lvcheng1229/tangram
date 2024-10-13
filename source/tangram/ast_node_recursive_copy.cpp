@@ -1,11 +1,28 @@
 #include "ast_node_recursive_copy.h"
 
-TIntermNode* CGlobalAstNodeRecursiveCopy::binaryCopy(TIntermBinary* node)
+bool CGlobalAstNodeRecursiveCopy::visitBinary(TVisit visit, TIntermBinary* node)
 {
-	//TIntermBinary* copyed_node = reinterpret_cast<TIntermBinary*>(global_allocator.allocate(sizeof(TIntermBinary)));
-	//copyed_node->setLeft();
-	//copyed_node->setRight();
+	if (visit == EvPreVisit)
+	{
 
-	//node->traverse(this);
-	return nullptr;
+	}
+	else if (visit == EvInVisit)
+	{
+
+	}
+	else if (visit == EvPostVisit)
+	{
+		TIntermNode* left_node = node_stack_context.back();
+		node_stack_context.pop_back();
+
+		TIntermNode* right_node = node_stack_context.back();
+		node_stack_context.pop_back();
+
+		char* node_mem = reinterpret_cast<char*>(global_allocator.allocate(sizeof(TIntermBinary)));
+		TIntermBinary* binary_node = new(node_mem)TIntermBinary(node->getOp());
+		binary_node->setLeft(static_cast<TIntermTyped*>(left_node));
+		binary_node->setRight(static_cast<TIntermTyped*>(right_node));
+	}
+
+	return true;
 }
