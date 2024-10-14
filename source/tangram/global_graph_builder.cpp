@@ -22,6 +22,7 @@
 
 static CGlobalGraphsBuilder* global_graph_builder = nullptr;
 static CGlobalAstNodeRecursiveCopy* global_ast_node_recursive_copy = nullptr;
+static TPoolAllocator* global_ast_node_copy_pool = nullptr;
 using namespace tangram;
 using namespace boost;
 
@@ -69,7 +70,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 		shader_code_vertex.hash_value = iter.hash_value;
 		shader_code_vertex.vtx_info = shader_code_info;
 		shader_code_vertex.debug_string = iter.debug_string.c_str();
-
+		shader_code_vertex.interm_node = iter.interm_node;
 		put(vtx_name_map, iter.graph_vtx_idx, shader_code_vertex);
 	}
 
@@ -744,7 +745,7 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>> vertex_input_edges;
 	buildGraphVertexInputEdges(new_graph, vertex_input_edges);
 	variableRename(&new_graph, vertex_input_edges);
-	graphPartition(&new_graph, vertex_input_edges);
+	shaderGraphLevelCompress(&new_graph, vertex_input_edges);
 
 #if TANGRAM_DEBUG
 	visGraph(&new_graph, true, false, false);
@@ -775,6 +776,7 @@ void initGlobalShaderGraphBuild()
 	{
 		global_graph_builder = new CGlobalGraphsBuilder();
 		global_ast_node_recursive_copy = new CGlobalAstNodeRecursiveCopy();
+		global_ast_node_copy_pool = new TPoolAllocator();
 	}
 }
 
@@ -791,6 +793,11 @@ void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_
 CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy()
 {
 	return global_ast_node_recursive_copy;
+}
+
+TPoolAllocator* getGetGlobalAstNodePool()
+{
+	return global_ast_node_copy_pool;
 }
 
 void buildGlobalShaderGraph()

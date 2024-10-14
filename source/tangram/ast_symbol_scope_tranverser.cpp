@@ -1,4 +1,4 @@
-#include "ast_tranversar_private.h"
+#include "ast_tranversar.h"
 #include <algorithm>
 
 bool TInvalidShaderTraverser::visitBinary(TVisit visit, TIntermBinary* node)

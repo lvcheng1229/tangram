@@ -55,6 +55,8 @@ struct SShaderCodeVertex
 	std::size_t vertex_shader_ids_hash;
 	int code_block_index;
 
+	TIntermNode* interm_node;
+
 #if TANGRAM_DEBUG
 	std::string debug_string;
 #endif
@@ -121,7 +123,7 @@ private:
 	CGraph merged_graphs;
 
 	void variableRename(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
-	void graphPartition(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
+	void shaderGraphLevelCompress(CGraph* graph, std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges);
 
 	CGraph mergeGraph(CGraph* graph_a, CGraph* graph_b);
 	
@@ -135,5 +137,6 @@ private:
 void initGlobalShaderGraphBuild();
 void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
 CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy();
+TPoolAllocator* getGetGlobalAstNodePool();
 void buildGlobalShaderGraph();
 void releaseGlobalShaderGraph();

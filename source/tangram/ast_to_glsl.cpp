@@ -1,4 +1,4 @@
-#include "ast_tranversar_private.h"
+#include "ast_tranversar.h"
 
 //todo: 
 // 1. fix bug xyzw.x -> to .x

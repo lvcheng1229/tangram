@@ -1,5 +1,5 @@
 #pragma once
-#include "ast_tranversar_private.h"
+#include "ast_tranversar.h"
 #include "xxhash.h"
 
 static constexpr int global_seed = 42;
@@ -118,7 +118,7 @@ private:
 	XXH64_hash_t generateBranchHashValue(TString& out_hash_string, TIntermBranch* node);
 	XXH64_hash_t generateSwitchHashValue(TString& out_hash_string);
 
-	void generateHashNode(const TString& hash_string, XXH64_hash_t node_hash_value);
+	void generateHashNode(const TString& hash_string, XXH64_hash_t node_hash_value, TIntermNode* node);
 	void generateSymbolInoutMap(int scope_min_line);
 	void getAndUpdateInputHashNodes(CHashNode& func_hash_node);
 	void outputDebugString(const CHashNode& func_hash_node);
