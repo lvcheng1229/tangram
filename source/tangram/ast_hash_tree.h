@@ -38,8 +38,15 @@ struct CHashNode
 
 	size_t graph_vtx_idx; 
 
-	bool should_rename; // 部分变量不可重命名比如 sample2D ps1
+	// 如果不能重命名，需要记录symbol的名字 (如 sampler texture和 uniform，对于unform buffer 要记录struct的名字), 因为 glsl 通过名字来设置索引
+	bool should_rename; // 部分变量不可重命名比如 sample2D ps1,uniform 变量，因为这些变量依靠名字来索引
+	bool is_ub_member;
 	TString symbol_name; //如果link symbol node不可重命名，则需要记录其名字
+
+	// 对于uniform buffer特殊处理
+	//bool is_uniform_buffer;
+	//uint16_t ub_offset;
+	//uint16_t ub_member_size;
 
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	std::set<uint64_t> out_hash_nodes;

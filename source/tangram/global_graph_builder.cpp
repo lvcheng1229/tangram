@@ -65,12 +65,14 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 			}
 		}
 		shader_code_info.related_shaders.push_back(shader_id);
-		
+
 		SShaderCodeVertex shader_code_vertex;
 		shader_code_vertex.hash_value = iter.hash_value;
 		shader_code_vertex.vtx_info = shader_code_info;
 		shader_code_vertex.debug_string = iter.debug_string.c_str();
 		shader_code_vertex.interm_node = iter.interm_node;
+		shader_code_vertex.should_rename = iter.should_rename;
+		shader_code_vertex.symbol_name = iter.symbol_name;
 		put(vtx_name_map, iter.graph_vtx_idx, shader_code_vertex);
 	}
 
@@ -102,6 +104,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 	}
 
 	// 对Graph进行处理，移除所有孤立点，即和当前Graph不相连的点
+	// 看能否移除这个步骤，目前时不能的，有些uniform buffer的一些成员变量是不会被用到的
 	CGraph processed_graph;
 	{
 		VertexNameMap new_vtx_name_map = get(boost::vertex_name, processed_graph);

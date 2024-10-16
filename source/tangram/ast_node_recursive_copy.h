@@ -26,6 +26,12 @@ enum  ESymbolScopeType
 	SST_NoAssign = 1 << 3,
 };
 
+//enum ESymbolType
+//{
+//	ST_None = 0,
+//	ST_SamplerTex
+//};
+
 class TTanGramIntermSymbol : public TIntermSymbol
 {
 public:
@@ -87,6 +93,27 @@ public:
 	}
 
 private:
+
+	// 如果不能重命名，需要记录symbol的名字 (如 sampler texture和 uniform，对于unform buffer 要记录struct的名字), 因为 glsl 通过名字来设置索引
+	//std::string symbol_name;
+
+	// 注意我们通过bool is_ub_member来确认ub
+
+	// 注意，我们并没有存储struct的member的node，所有的member都是存的struct的node
+	struct SUniformBufferMemberDesc
+	{
+		XXH32_hash_t struct_instance_hash; //首先根据instance hash找重命名后的变量，这个变量是全局的
+		XXH32_hash_t struct_member_hash; // 这个就用全局的命名吧，防止冲突了。不行，不能用全局的，这个是不会冲突的，要加个全局的uniform buffer member map
+		uint16_t struct_member_size; //
+		uint16_t struct_member_offset;
+		uint16_t struct_size;
+
+		//const TTypeList* structure = type.getStruct();
+		//for (size_t i = 0; i < structure->size(); ++i)
+		uint16_t struct_index;
+	};
+	SUniformBufferMemberDesc* uniform_buffer_member_desc;
+
 
 	int32_t asinput_index; //symbol as input index
 	int32_t asoutut_index; //symbol as output index

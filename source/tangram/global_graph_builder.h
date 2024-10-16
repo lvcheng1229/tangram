@@ -56,6 +56,9 @@ struct SShaderCodeVertex
 
 	TIntermNode* interm_node;
 
+	bool should_rename;
+	std::string symbol_name;
+
 #if TANGRAM_DEBUG
 	std::string debug_string;
 #endif

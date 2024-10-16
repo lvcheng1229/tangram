@@ -129,7 +129,16 @@ void CGlobalGraphsBuilder::variableRename(CGraph* graph, std::map<SGraphVertexDe
 		{
 			if (shader_code_vtx.vtx_info.inout_variable_out2in.find(opt_symbol_idx) == shader_code_vtx.vtx_info.inout_variable_out2in.end())
 			{
-				variable_name_manager.getNewSymbolName(XXH64_hash_t(0), vtx_info.opt_variable_names[opt_symbol_idx]);
+				if (shader_code_vtx.should_rename == true)
+				{
+					variable_name_manager.getNewSymbolName(XXH64_hash_t(0), vtx_info.opt_variable_names[opt_symbol_idx]);
+				}
+				else
+				{
+					assert(vtx_info.opt_variable_names.size() == 1);
+					vtx_info.opt_variable_names[0] = shader_code_vtx.symbol_name;
+				}
+				
 				CVariableRenameFloodFillSearch variable_rename_flood_search(vertex_input_edges, vtx_info.opt_variable_names[opt_symbol_idx], opt_symbol_idx, *vtx_desc_iter, *graph);
 				variable_rename_flood_search.renameVariable();
 			}
