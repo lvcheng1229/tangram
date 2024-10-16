@@ -4,4 +4,6 @@
 #include "MachineIndependent/localintermediate.h"
 #include "Include/InfoSink.h"
 
-#include "common.h"
+#define TANGRAM_DEBUG 1
+
+static constexpr int global_seed = 42;

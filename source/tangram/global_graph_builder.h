@@ -4,7 +4,6 @@
 #include <unordered_map>
 
 #include "xxhash.h"
-#include "common.h"
 #include "ast_hash_tree.h"
 #include "variable_name_manager.h"
 #include "ast_node_recursive_copy.h"

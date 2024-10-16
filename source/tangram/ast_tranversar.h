@@ -2,8 +2,11 @@
 #include <assert.h>
 #include <set>
 #include <unordered_map>
+#include <string>
 
+#include "xxhash.h"
 #include "glslang_headers.h"
+
 using namespace glslang;
 
 #define assert_t(...) assert(__VA_ARGS__);
@@ -46,24 +49,24 @@ private:
     std::unordered_map<long long, int> symbol_min_line;
 };
 
-class CSymbolNameMapper
-{
-public:
-    CSymbolNameMapper();
-    const TString& getSymbolMappedName(long long symbol_id);
-private:
-    const TString allocNextSymbolName();
-
-    int symbol_index = 0;
-    std::vector<char> candidate_char;
-    std::unordered_map<long long, TString> symbol_name_mapped;
-
-    int current_length = 1;
-
-    int uppercase_offset;
-    int lowercase_offset;
-    int digital_offset;
-};
+//class CSymbolNameMapper
+//{
+//public:
+//    CSymbolNameMapper();
+//    const TString& getSymbolMappedName(long long symbol_id);
+//private:
+//    const TString allocNextSymbolName();
+//
+//    int symbol_index = 0;
+//    std::vector<char> candidate_char;
+//    std::unordered_map<long long, TString> symbol_name_mapped;
+//
+//    int current_length = 1;
+//
+//    int uppercase_offset;
+//    int lowercase_offset;
+//    int digital_offset;
+//};
 
 class TSubScopeTraverser : public TIntermTraverser {
 public:
@@ -148,13 +151,21 @@ private:
     std::unordered_map<int, TIntermSymbol*> loop_header_symbols;
 };
 
+struct SCodeBlockGenerateContext
+{
+    std::vector<std::string>* ipt_variable_names;
+    std::vector<std::string>* opt_variable_names;
+
+    std::set<XXH32_hash_t> declared_symbols_hash;
+};
 
 class TAstToGLTraverser : public TIntermTraverser {
 public:
-    TAstToGLTraverser() :
+    TAstToGLTraverser(bool codeblock_tranverser = false) :
+        TIntermTraverser(true, true, true, false),
         subscope_tranverser(&declared_symbols_id),
-        loop_header_tranverser(&declared_symbols_id),
-        TIntermTraverser(true, true, true, false) //
+        is_codeblock_tranverser(codeblock_tranverser),
+        loop_header_tranverser(&declared_symbols_id)
     { }
 
     struct SVisitState
@@ -213,7 +224,21 @@ public:
 
     inline void appendDebugString(const TString& debug_str) { code_buffer.append(debug_str); }
 
+    inline void setCodeBlockContext(std::vector<std::string>* ipt_variable_names, std::vector<std::string>* opt_variable_names)
+    {
+        code_block_generate_context.ipt_variable_names = ipt_variable_names;
+        code_block_generate_context.opt_variable_names = opt_variable_names;
+    }
+
+    inline std::string getCodeUnitString()
+    {
+        std::string ret_string = code_buffer;
+        code_buffer.clear();
+        return ret_string;
+    }
 private:
+    bool isSymbolDeclared(TIntermSymbol* node);
+
     void emitTypeConvert(TVisit visit, TIntermUnary* node, const TString& unaryName, const TString& vecName, bool onlyConvertVec = false);
 
     void constUnionBegin(const TIntermConstantUnion* const_untion, TBasicType basic_type);
@@ -226,13 +251,10 @@ private:
     TString getArraySize(const TType& type);
 
 protected:
-    CSymbolNameMapper symbol_name_mapper;
-
-
     bool enable_line_feed_optimize = false;
     bool enable_white_space_optimize = true;
     bool ignore_medium_presion_out = true;
-    bool enable_symbol_name_optimization = false;
+    //bool enable_symbol_name_optimization = false;
 
     struct SParserContext
     {
@@ -242,6 +264,8 @@ protected:
         int component_func_visit_index = 0;
     };
 
+    bool is_codeblock_tranverser;
+
     SParserContext parser_context;
 
     std::string code_buffer;
@@ -250,6 +274,7 @@ protected:
     TSymbolScopeTraverser symbol_scope_traverser;
     TSubScopeTraverser subscope_tranverser;
     TLoopHeaderTraverser loop_header_tranverser;
+    SCodeBlockGenerateContext code_block_generate_context;
 };
 
 TString OutputDouble(double value);

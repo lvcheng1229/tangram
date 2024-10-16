@@ -238,7 +238,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				getAndUpdateInputHashNodes(func_hash_node);
 				updateLastAssignHashmap(func_hash_node);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
-				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+				assert(builder_context.getOutputHashValues().size() == 1);
+				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextAssignNode(builder_context.getOutputHashValues()[0]);
 				{
 					tree_hash_nodes.push_back(func_hash_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
@@ -1002,8 +1003,10 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					debug_traverser.appendDebugString("]");
 #endif
 					linker_node.opt_symbol_name_order_map[hash_value] = 0;
+
 					node->traverse(getGlobalAstNodeRecursiveCopy());
-					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
 					tree_hash_nodes.push_back(linker_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 				}
@@ -1026,7 +1029,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 					linker_node.opt_symbol_name_order_map[hash_value] = 0;
 					node->traverse(getGlobalAstNodeRecursiveCopy());
-					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 					tree_hash_nodes.push_back(linker_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 				}
@@ -1045,7 +1048,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				node->traverse(getGlobalAstNodeRecursiveCopy());
-				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1062,7 +1065,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				node->traverse(getGlobalAstNodeRecursiveCopy());
-				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1082,7 +1085,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				node->traverse(getGlobalAstNodeRecursiveCopy());
-				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1101,7 +1104,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 #endif
 					symbol_hash_node.opt_symbol_name_order_map[out_scope_hash] = 0;
 					node->traverse(getGlobalAstNodeRecursiveCopy());
-					symbol_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+					symbol_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 					tree_hash_nodes.push_back(symbol_hash_node);
 					hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
 					builder_context.addUniqueHashValue(out_scope_hash, node->getName());
@@ -1518,7 +1521,7 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 	updateLastAssignHashmap(func_hash_node);
 
 	node->traverse(getGlobalAstNodeRecursiveCopy());
-	func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getAndPopCopyedNode();
+	func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextNoAssign(builder_context.getInputHashValues(), builder_context.getOutputHashValues());
 
 	{
 		tree_hash_nodes.push_back(func_hash_node);

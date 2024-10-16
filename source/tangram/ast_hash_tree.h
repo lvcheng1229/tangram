@@ -2,10 +2,6 @@
 #include "ast_tranversar.h"
 #include "xxhash.h"
 
-static constexpr int global_seed = 42;
-
-
-
 // 第 i个输入symbol所对应的上个节点的第j个输出
 struct CHashEdge
 {
@@ -26,7 +22,8 @@ struct CHashNode
 	CHashNode() :
 		weight(1.0),
 		hash_value(0),
-		combined_hash_value(0) {}
+		combined_hash_value(0),
+		should_rename(true){}
 
 	float weight;
 
@@ -40,6 +37,9 @@ struct CHashNode
 	TIntermNode* interm_node;
 
 	size_t graph_vtx_idx; 
+
+	bool should_rename; // 部分变量不可重命名比如 sample2D ps1
+	TString symbol_name; //如果link symbol node不可重命名，则需要记录其名字
 
 	std::vector<uint64_t> input_hash_nodes; //input hash node indices
 	std::set<uint64_t> out_hash_nodes;

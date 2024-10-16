@@ -14,6 +14,21 @@
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/topological_sort.hpp>
 
+struct SCodeUnit
+{
+	std::string code;
+};
+
+struct SCodeBlock
+{
+	std::vector<SCodeUnit> code_units;
+};
+
+struct SCodeBlockTable
+{
+	std::vector<SCodeBlock> code_blocks;
+};
+
 class CShaderCompressor
 {
 public:
@@ -21,12 +36,13 @@ public:
 		:vertex_input_edges(vertex_input_edges)
 		, topological_order_vertices(topological_order_vertices)
 		, graph(graph)
+		, glsl_converter(nullptr)
 	{
 		previousAllocator = &GetThreadPoolAllocator();
 		builtInPoolAllocator = new TPoolAllocator;
 
 		SetThreadPoolAllocator(builtInPoolAllocator);
-		glsl_converter = new TAstToGLTraverser();
+		
 
 		vtx_name_map = get(boost::vertex_name, graph);
 		block_index = 0;
@@ -54,5 +70,6 @@ private:
 	TPoolAllocator* previousAllocator;
 	TPoolAllocator* builtInPoolAllocator;
 
+	SCodeBlockTable code_block_table;
 	TAstToGLTraverser* glsl_converter;
 };

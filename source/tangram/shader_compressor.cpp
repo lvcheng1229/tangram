@@ -3,8 +3,9 @@
 
 void CShaderCompressor::partition()
 {
-	init_ast_to_glsl();
-	
+	TAstToGLTraverser new_glsl_converter(true);
+	glsl_converter = &new_glsl_converter;
+
 	std::vector<SGraphVertexDesc> start_vertex_descs;
 	for (STopologicalOrderVetices::reverse_iterator vtx_desc_iter = topological_order_vertices.rbegin(); vtx_desc_iter != topological_order_vertices.rend(); ++vtx_desc_iter)
 	{
@@ -23,6 +24,12 @@ void CShaderCompressor::partition()
 			node_found.insert(vtx_desc);
 			SShaderCodeVertex& shader_vertex = vtx_name_map[vtx_desc];
 			shader_vertex.code_block_index = block_index;
+
+			code_block_table.code_blocks.emplace_back(SCodeBlock());
+			glsl_converter->setCodeBlockContext(&shader_vertex.vtx_info.ipt_variable_names, &shader_vertex.vtx_info.opt_variable_names);
+			shader_vertex.interm_node->traverse(glsl_converter);
+			code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{ glsl_converter->getCodeUnitString() });
+
 			for (int same_hash_idx = 0; same_hash_idx < start_vertex_descs.size(); same_hash_idx++)
 			{
 				if (same_hash_idx != start_vertex_idx)
@@ -35,7 +42,11 @@ void CShaderCompressor::partition()
 						if (node_found.find(same_hash_vtx_desc) == node_found.end())
 						{
 							node_found.insert(same_hash_vtx_desc);
+
+							glsl_converter->setCodeBlockContext(&same_hash_shader_vertex.vtx_info.ipt_variable_names, &same_hash_shader_vertex.vtx_info.opt_variable_names);
 							same_hash_shader_vertex.interm_node->traverse(glsl_converter);
+							code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{glsl_converter->getCodeUnitString()});
+
 							same_hash_shader_vertex.code_block_index = block_index;
 						}
 					}
@@ -52,11 +63,16 @@ void CShaderCompressor::partition()
 			node_found.insert(*vtx_desc_iter);
 			SShaderCodeVertex& shader_vertex = vtx_name_map[*vtx_desc_iter];
 			shader_vertex.code_block_index = block_index;
+
+			glsl_converter->setCodeBlockContext(&shader_vertex.vtx_info.ipt_variable_names, &shader_vertex.vtx_info.opt_variable_names);
 			shader_vertex.interm_node->traverse(glsl_converter);
+			code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{ glsl_converter->getCodeUnitString() });
+
 			floodSearch(*vtx_desc_iter, shader_vertex.vertex_shader_ids_hash);
 			block_index++;
 		}
 	}
+	glsl_converter = nullptr;
 }
 
 void CShaderCompressor::floodSearch(SGraphVertexDesc vtx_desc, std::size_t pre_node_block_hash)
@@ -74,7 +90,11 @@ void CShaderCompressor::floodSearch(SGraphVertexDesc vtx_desc, std::size_t pre_n
 				if (node_found.find(vertex_desc) == node_found.end())
 				{
 					node_found.insert(vertex_desc);
+
+					glsl_converter->setCodeBlockContext(&next_shader_vertex.vtx_info.ipt_variable_names, &next_shader_vertex.vtx_info.opt_variable_names);
 					next_shader_vertex.interm_node->traverse(glsl_converter);
+					code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{ glsl_converter->getCodeUnitString() });
+
 					next_shader_vertex.code_block_index = block_index;
 					floodSearch(vertex_desc, pre_node_block_hash);
 				}
@@ -94,7 +114,11 @@ void CShaderCompressor::floodSearch(SGraphVertexDesc vtx_desc, std::size_t pre_n
 			if (node_found.find(vertex_desc) == node_found.end())
 			{
 				node_found.insert(vertex_desc);
+
+				glsl_converter->setCodeBlockContext(&next_shader_vertex.vtx_info.ipt_variable_names, &next_shader_vertex.vtx_info.opt_variable_names);
 				next_shader_vertex.interm_node->traverse(glsl_converter);
+				code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{ glsl_converter->getCodeUnitString() });
+
 				floodSearch(vertex_desc, pre_node_block_hash);
 			}
 		}

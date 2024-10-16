@@ -4,7 +4,6 @@
 #include <unordered_map>
 
 #include "xxhash.h"
-#include "common.h"
 
 class CVariableNameManager
 {
