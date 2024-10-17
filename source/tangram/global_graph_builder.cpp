@@ -21,7 +21,7 @@
 // 只有一个节点，并且不相连的情况
 
 static CGlobalGraphsBuilder* global_graph_builder = nullptr;
-static CGlobalAstNodeRecursiveCopy* global_ast_node_recursive_copy = nullptr;
+static CGlobalAstNodeDeepCopy* global_ast_node_recursive_copy = nullptr;
 static TPoolAllocator* global_ast_node_copy_pool = nullptr;
 using namespace tangram;
 using namespace boost;
@@ -73,6 +73,7 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 		shader_code_vertex.interm_node = iter.interm_node;
 		shader_code_vertex.should_rename = iter.should_rename;
 		shader_code_vertex.symbol_name = iter.symbol_name;
+		shader_code_vertex.is_ub_member = iter.is_ub_member;
 		put(vtx_name_map, iter.graph_vtx_idx, shader_code_vertex);
 	}
 
@@ -778,7 +779,7 @@ void initGlobalShaderGraphBuild()
 	if (global_graph_builder == nullptr)
 	{
 		global_graph_builder = new CGlobalGraphsBuilder();
-		global_ast_node_recursive_copy = new CGlobalAstNodeRecursiveCopy();
+		global_ast_node_recursive_copy = new CGlobalAstNodeDeepCopy();
 		global_ast_node_copy_pool = new TPoolAllocator();
 	}
 }
@@ -793,7 +794,7 @@ void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_
 	global_graph_builder->addHashDependencyGraph(hash_dependency_graphs, shader_id);
 }
 
-CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy()
+CGlobalAstNodeDeepCopy* getGlobalAstNodeRecursiveCopy()
 {
 	return global_ast_node_recursive_copy;
 }

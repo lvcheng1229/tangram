@@ -248,6 +248,8 @@ private:
     void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
 
     TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
+    
+
     TString getArraySize(const TType& type);
 
 protected:

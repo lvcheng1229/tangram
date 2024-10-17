@@ -6,7 +6,7 @@
 #include "xxhash.h"
 #include "ast_hash_tree.h"
 #include "variable_name_manager.h"
-#include "ast_node_recursive_copy.h"
+#include "ast_node_deepcopy.h"
 
 #include <boost/graph/adjacency_list.hpp>
 
@@ -56,6 +56,7 @@ struct SShaderCodeVertex
 
 	TIntermNode* interm_node;
 
+	bool is_ub_member;
 	bool should_rename;
 	std::string symbol_name;
 
@@ -138,7 +139,7 @@ private:
 
 void initGlobalShaderGraphBuild();
 void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
-CGlobalAstNodeRecursiveCopy* getGlobalAstNodeRecursiveCopy();
+CGlobalAstNodeDeepCopy* getGlobalAstNodeRecursiveCopy();
 TPoolAllocator* getGetGlobalAstNodePool();
 void buildGlobalShaderGraph();
 void releaseGlobalShaderGraph();

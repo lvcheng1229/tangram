@@ -1,5 +1,5 @@
 #include "ast_tranversar.h"
-#include "ast_node_recursive_copy.h"
+#include "ast_node_deepcopy.h"
 
 //todo: 
 // 1. fix bug xyzw.x -> to .x
@@ -126,6 +126,7 @@ void TAstToGLTraverser::declareSubScopeSymbol()
         }
     }
 }
+
 
 TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
 {

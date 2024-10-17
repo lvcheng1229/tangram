@@ -32,10 +32,29 @@ enum  ESymbolScopeType
 //	ST_SamplerTex
 //};
 
+// 如果不能重命名，需要记录symbol的名字 (如 sampler texture和 uniform，对于unform buffer 要记录struct的名字), 因为 glsl 通过名字来设置索引
+	//std::string symbol_name;
+
+	// 注意我们通过bool is_ub_member来确认ub
+
+	// 注意，我们并没有存储struct的member的node，所有的member都是存的struct的node
+struct SUniformBufferMemberDesc
+{
+	XXH32_hash_t struct_instance_hash; //首先根据instance hash找重命名后的变量，这个变量是全局的
+	XXH32_hash_t struct_member_hash; // 这个就用全局的命名吧，防止冲突了。不行，不能用全局的，这个是不会冲突的，要加个全局的uniform buffer member map
+	uint16_t struct_member_size; //
+	uint16_t struct_member_offset;
+	uint16_t struct_size;
+
+	//const TTypeList* structure = type.getStruct();
+	//for (size_t i = 0; i < structure->size(); ++i)
+	uint16_t struct_index;
+};
+
 class TTanGramIntermSymbol : public TIntermSymbol
 {
 public:
-	TTanGramIntermSymbol(long long i, const TString& n, const TType& t) :TIntermSymbol(i, n, t) , asinput_index(-1), asoutut_index(-1) {};
+	TTanGramIntermSymbol(long long i, const TString& n, const TType& t) :TIntermSymbol(i, n, t) , asinput_index(-1), asoutut_index(-1),uniform_buffer_member_desc(nullptr) {};
 
 	//std::string generateCode();
 
@@ -52,6 +71,11 @@ public:
 	inline int32_t getAsOutputIndex()const { return asoutut_index; };
 
 	inline bool isLinkerNode()const { return scope_type == SST_LinkerNode; }
+
+	inline bool isUniformBufferStruct()const { return uniform_buffer_member_desc != nullptr; };
+
+	inline SUniformBufferMemberDesc* getUBMemberDesc() { return uniform_buffer_member_desc; };
+	inline void setUBMemberDesc(SUniformBufferMemberDesc* ub_member_Desc) { uniform_buffer_member_desc = ub_member_Desc; };
 
 	inline TString getSymbolName(std::vector<std::string>* ipt_variable_names, std::vector<std::string>* opt_variable_names)
 	{
@@ -93,30 +117,11 @@ public:
 	}
 
 private:
-
-	// 如果不能重命名，需要记录symbol的名字 (如 sampler texture和 uniform，对于unform buffer 要记录struct的名字), 因为 glsl 通过名字来设置索引
-	//std::string symbol_name;
-
-	// 注意我们通过bool is_ub_member来确认ub
-
-	// 注意，我们并没有存储struct的member的node，所有的member都是存的struct的node
-	struct SUniformBufferMemberDesc
-	{
-		XXH32_hash_t struct_instance_hash; //首先根据instance hash找重命名后的变量，这个变量是全局的
-		XXH32_hash_t struct_member_hash; // 这个就用全局的命名吧，防止冲突了。不行，不能用全局的，这个是不会冲突的，要加个全局的uniform buffer member map
-		uint16_t struct_member_size; //
-		uint16_t struct_member_offset;
-		uint16_t struct_size;
-
-		//const TTypeList* structure = type.getStruct();
-		//for (size_t i = 0; i < structure->size(); ++i)
-		uint16_t struct_index;
-	};
-	SUniformBufferMemberDesc* uniform_buffer_member_desc;
-
-
 	int32_t asinput_index; //symbol as input index
 	int32_t asoutut_index; //symbol as output index
+	
+	//todo: release resource
+	SUniformBufferMemberDesc* uniform_buffer_member_desc;
 
 	ESymbolScopeType scope_type;
 	ESymbolState symbol_state;
@@ -131,11 +136,11 @@ struct CastType<TIntermSymbol> { using Type = TTanGramIntermSymbol; };
 template<typename T>
 CastType<T>::Type* getTanGramNode(T* type) { return static_cast<CastType<T>::Type*>(type); }
 
-class CGlobalAstNodeRecursiveCopy : public glslang::TIntermTraverser
+class CGlobalAstNodeDeepCopy : public glslang::TIntermTraverser
 {
 public:
-	CGlobalAstNodeRecursiveCopy() :glslang::TIntermTraverser(true, true, true) { ast_node_allocator = new TPoolAllocator; }
-	~CGlobalAstNodeRecursiveCopy() { delete ast_node_allocator; };
+	CGlobalAstNodeDeepCopy() :glslang::TIntermTraverser(true, true, true), is_visit_link_node(false){ ast_node_allocator = new TPoolAllocator; }
+	~CGlobalAstNodeDeepCopy() { delete ast_node_allocator; };
 
 	virtual bool visitBinary(TVisit, TIntermBinary* node);
 	virtual bool visitUnary(TVisit, TIntermUnary* node);
@@ -155,6 +160,8 @@ public:
 	TIntermNode* getCopyedNodeAndResetContextNoAssign(std::vector<XXH64_hash_t>& input_hash_nodes, std::vector<XXH64_hash_t>& output_hash_nodes);
 	TIntermNode* getCopyedNodeAndResetContextAssignNode(XXH64_hash_t output_hash_node);
 	TIntermNode* getCopyedNodeAndResetContextLinkNode();
+
+	inline void setDeepCopyContext(bool value) { is_visit_link_node = value; };
 
 private:
 	TIntermNode* getCopyedNodeAndResetContextImpl();
@@ -219,4 +226,6 @@ private:
 
 	long long symbol_index;
 	std::unordered_map<long long, long long> symbol_id2index; //将 Symbol 的 ID 映射到 symbol index
+
+	bool is_visit_link_node;
 };

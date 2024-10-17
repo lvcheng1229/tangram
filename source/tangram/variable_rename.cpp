@@ -129,7 +129,11 @@ void CGlobalGraphsBuilder::variableRename(CGraph* graph, std::map<SGraphVertexDe
 		{
 			if (shader_code_vtx.vtx_info.inout_variable_out2in.find(opt_symbol_idx) == shader_code_vtx.vtx_info.inout_variable_out2in.end())
 			{
-				if (shader_code_vtx.should_rename == true)
+				if (shader_code_vtx.is_ub_member == true)
+				{
+
+				}
+				else if (shader_code_vtx.should_rename == true)
 				{
 					variable_name_manager.getNewSymbolName(XXH64_hash_t(0), vtx_info.opt_variable_names[opt_symbol_idx]);
 				}

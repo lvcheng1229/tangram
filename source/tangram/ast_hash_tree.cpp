@@ -1,5 +1,6 @@
 #include "ast_hash_tree.h"
 #include "global_graph_builder.h"
+#include "glslang_helper.h"
 
 // todo: 自增 自减 修改了输入变量，这个需要加入到输出变量里
 // 赋值语句 和 Linker Node 都只有一个输出（不考虑自增自减）
@@ -18,118 +19,6 @@ void CScopeSymbolNameTraverser::visitSymbol(TIntermSymbol* node)
 	}
 }
 
-TString CASTHashTreeBuilder::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision, bool getLayoutLocation)
-{
-	TString type_string;
-
-	const auto appendStr = [&](const char* s) { type_string.append(s); };
-	const auto appendUint = [&](unsigned int u) { type_string.append(std::to_string(u).c_str()); };
-	const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
-
-	TBasicType basic_type = type.getBasicType();
-	bool is_vec = type.isVector();
-	bool is_blk = (basic_type == EbtBlock);
-	bool is_mat = type.isMatrix();
-
-	const TQualifier& qualifier = type.getQualifier();
-	if (getQualifiers)
-	{
-		if (qualifier.hasLayout())
-		{
-			appendStr("layout(");
-			if (qualifier.hasAnyLocation() && getLayoutLocation)
-			{
-				appendStr(" location=");
-				appendUint(qualifier.layoutLocation);
-			}
-			if (qualifier.hasPacking())
-			{
-				appendStr(TQualifier::getLayoutPackingString(qualifier.layoutPacking));
-			}
-			appendStr(")");
-		}
-
-		bool should_out_storage_qualifier = true;
-		if (type.getQualifier().storage == EvqTemporary ||
-			type.getQualifier().storage == EvqGlobal)
-		{
-			should_out_storage_qualifier = false;
-		}
-
-		if (should_out_storage_qualifier)
-		{
-			appendStr(type.getStorageQualifierString());
-			appendStr(" ");
-		}
-
-		{
-			appendStr(type.getPrecisionQualifierString());
-			appendStr(" ");
-		}
-	}
-
-	if ((getQualifiers == false) && getPrecision)
-	{
-		{
-			appendStr(type.getPrecisionQualifierString());
-			appendStr(" ");
-		}
-	}
-
-	if (is_vec)
-	{
-		switch (basic_type)
-		{
-		case EbtDouble:
-			appendStr("d");
-			break;
-		case EbtInt:
-			appendStr("i");
-			break;
-		case EbtUint:
-			appendStr("u");
-			break;
-		case EbtBool:
-			appendStr("b");
-			break;
-		case EbtFloat:
-		default:
-			break;
-		}
-	}
-
-	if (is_mat)
-	{
-		appendStr("mat");
-
-		int mat_raw_num = type.getMatrixRows();
-		int mat_col_num = type.getMatrixCols();
-
-		if (mat_raw_num == mat_col_num)
-		{
-			appendInt(mat_raw_num);
-		}
-		else
-		{
-			appendInt(mat_raw_num);
-			appendStr("x");
-			appendInt(mat_col_num);
-		}
-	}
-
-	if (is_vec)
-	{
-		appendStr("vec");
-		appendInt(type.getVectorSize());
-	}
-
-	if ((!is_vec) && (!is_blk) && (!is_mat))
-	{
-		appendStr(type.getBasicTypeString().c_str());
-	}
-
-	return type_string;
-}
 
 // binary hash
 // 2_operator_lefthash_righthash
@@ -237,6 +126,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				builder_context.buildInputOutputSymbolIndexMap(func_hash_node);
 				getAndUpdateInputHashNodes(func_hash_node);
 				updateLastAssignHashmap(func_hash_node);
+
+				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(false);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				assert(builder_context.getOutputHashValues().size() == 1);
 				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextAssignNode(builder_context.getOutputHashValues()[0]);
@@ -1011,13 +902,26 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 //					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 //				}
 
+				
 				const TTypeList* structure = type.getStruct();
+				int16_t struct_size = 0;
+				for (size_t i = 0; i < structure->size(); ++i)
+				{
+					TType* struct_mem_type = (*structure)[i].type;
+					struct_size += getTypeSize(*struct_mem_type);
+				}
+
+				int member_offset = 0;
+				XXH32_hash_t struct_inst_hash = XXH32(hash_string.data(), hash_string.size(), global_seed);
 				for (size_t i = 0; i < structure->size(); ++i)
 				{
 					TString mem_name = hash_string;
 					TType* struct_mem_type = (*structure)[i].type;
 					mem_name.append(struct_mem_type->getFieldName().c_str());
+
+					int16_t member_size = getTypeSize(*struct_mem_type);
 					XXH64_hash_t hash_value = XXH64(mem_name.data(), mem_name.size(), global_seed);
+					XXH32_hash_t member_hash = XXH32(struct_mem_type->getFieldName().data(), struct_mem_type->getFieldName().size(), global_seed);
 
 					CHashNode linker_node;
 					linker_node.hash_value = hash_value;
@@ -1028,10 +932,24 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					debug_traverser.appendDebugString("]");
 #endif
 					linker_node.opt_symbol_name_order_map[hash_value] = 0;
+
+					getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 					node->traverse(getGlobalAstNodeRecursiveCopy());
 					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+					linker_node.is_ub_member = true;
+
+					SUniformBufferMemberDesc* ub_desc = getTanGramNode(linker_node.interm_node->getAsSymbolNode())->getUBMemberDesc();
+					ub_desc->struct_instance_hash = struct_inst_hash;
+					ub_desc->struct_member_hash = member_hash;
+					ub_desc->struct_member_size = member_size;
+					ub_desc->struct_member_offset = member_offset;
+					ub_desc->struct_size = struct_size;
+					ub_desc->struct_index = i;
+
 					tree_hash_nodes.push_back(linker_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
+
+					member_offset += member_size;
 				}
 			}
 			else if (basic_type == EbtSampler) //sample linker object
@@ -1047,8 +965,11 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				debug_traverser.appendDebugString("]");
 #endif
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
+
+				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
 				linker_node.should_rename = false;
 				linker_node.symbol_name = node->getName();
 				tree_hash_nodes.push_back(linker_node);
@@ -1066,8 +987,11 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				debug_traverser.appendDebugString("]");
 #endif
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
+
+				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1088,8 +1012,11 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				linker_node.opt_symbol_name_order_map[hash_value] = 0;
 				linker_node.should_rename = false;
 				linker_node.symbol_name = node->getName();
+
+				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1107,8 +1034,11 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					symbol_hash_node.debug_string = global_variable;
 #endif
 					symbol_hash_node.opt_symbol_name_order_map[out_scope_hash] = 0;
+
+					getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 					node->traverse(getGlobalAstNodeRecursiveCopy());
 					symbol_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
 					tree_hash_nodes.push_back(symbol_hash_node);
 					hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
 					builder_context.addUniqueHashValue(out_scope_hash, node->getName());
@@ -1524,6 +1454,7 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 	getAndUpdateInputHashNodes(func_hash_node);
 	updateLastAssignHashmap(func_hash_node);
 
+	getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(false);
 	node->traverse(getGlobalAstNodeRecursiveCopy());
 	func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextNoAssign(builder_context.getInputHashValues(), builder_context.getOutputHashValues());
 

@@ -23,7 +23,8 @@ struct CHashNode
 		weight(1.0),
 		hash_value(0),
 		combined_hash_value(0),
-		should_rename(true){}
+		should_rename(true),
+		is_ub_member(false){}
 
 	float weight;
 
@@ -133,7 +134,7 @@ private:
 
 	void increAndDecrePath(TVisit visit, TIntermNode* current);
 
-	TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true, bool getLayoutLocation = true);
+	
 	std::vector<CHashNode> tree_hash_nodes;
 	std::unordered_map<XXH64_hash_t, uint32_t> hash_value_to_idx;
 
