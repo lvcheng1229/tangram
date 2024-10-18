@@ -15,6 +15,8 @@ enum  ESymbolState
 	SS_None = 0,
 	SS_InputSymbol = (1 << 0),
 	SS_OutputSymbol = (1 << 1),
+	SS_LinkerSymbol = (1 << 2),
+
 	SS_InoutSymbol = (SS_InputSymbol | SS_OutputSymbol),
 };
 
@@ -54,14 +56,14 @@ struct SUniformBufferMemberDesc
 class TTanGramIntermSymbol : public TIntermSymbol
 {
 public:
-	TTanGramIntermSymbol(long long i, const TString& n, const TType& t) :TIntermSymbol(i, n, t) , asinput_index(-1), asoutut_index(-1),uniform_buffer_member_desc(nullptr) {};
+	TTanGramIntermSymbol(long long i, const TString& n, const TType& t) :TIntermSymbol(i, n, t) , asinput_index(-1), asoutut_index(-1),uniform_buffer_member_desc(nullptr), symbol_state(SS_None){};
 
 	//std::string generateCode();
 
 	inline void setScopeType(ESymbolScopeType sst) { scope_type = sst; };
 	inline ESymbolScopeType getScopeType()const { return scope_type; };
 
-	inline void setSymbolState(ESymbolState st) { symbol_state = st; };
+	inline void addSymbolState(ESymbolState st) { symbol_state = ESymbolState(symbol_state | st); };
 	inline ESymbolState getSymbolState()const { return symbol_state; };
 
 	inline void setAsInputIndex(int32_t index) { asinput_index = index; };
@@ -70,7 +72,9 @@ public:
 	inline void setAsOutputIndex(int32_t index) { asoutut_index = index; };
 	inline int32_t getAsOutputIndex()const { return asoutut_index; };
 
-	inline bool isLinkerNode()const { return scope_type == SST_LinkerNode; }
+	// 在main函数中碰到symbol node是linker node时 isLinkerNodeScope返回false
+	inline bool isLinkerNodeScope()const { return scope_type == SST_LinkerNode; }
+	inline bool isLinkerSymbol()const { return (symbol_state & SS_LinkerSymbol) != 0; }
 
 	inline bool isUniformBufferStruct()const { return uniform_buffer_member_desc != nullptr; };
 
@@ -157,8 +161,8 @@ public:
 	//	scope_context.scope_type = scope_type;
 	//}
 
-	TIntermNode* getCopyedNodeAndResetContextNoAssign(std::vector<XXH64_hash_t>& input_hash_nodes, std::vector<XXH64_hash_t>& output_hash_nodes);
-	TIntermNode* getCopyedNodeAndResetContextAssignNode(XXH64_hash_t output_hash_node);
+	TIntermNode* getCopyedNodeAndResetContext(std::unordered_map<XXH32_hash_t, ESymbolState>& symbol_state_map, ESymbolScopeType scopeType,std::set<XXH32_hash_t>& linker_node_map);
+	//TIntermNode* getCopyedNodeAndResetContextAssignNode(XXH32_hash_t output_hash_node);
 	TIntermNode* getCopyedNodeAndResetContextLinkNode();
 
 	inline void setDeepCopyContext(bool value) { is_visit_link_node = value; };

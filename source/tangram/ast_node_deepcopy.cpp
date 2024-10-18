@@ -11,28 +11,28 @@ static bool sortSymbolNodes(TIntermSymbol* symbol_a, TIntermSymbol* symbol_b)
 	return symbol_a->getId() < symbol_b->getId();
 }
 
-TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextNoAssign(std::vector<XXH64_hash_t>& input_hash_nodes, std::vector<XXH64_hash_t>& output_hash_nodes)
+TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContext(std::unordered_map<XXH32_hash_t, ESymbolState>& symbol_state_map, ESymbolScopeType scopeType, std::set<XXH32_hash_t>& linker_node_map)
 {
 	std::sort(symbol_nodes.begin(), symbol_nodes.end(), sortSymbolNodes);
 
 	long long input_index = 0;
 	long long output_index = 0;
 
-	std::unordered_map<XXH64_hash_t, int32_t>input_symbol_index_map;
-
-	// 首先遍历所有input nodes，看看其是否是input，如果是，判断这个symbol是否之前出现过
-	ESymbolState symbol_state = ESymbolState::SS_None;
+	std::unordered_map<XXH32_hash_t, int32_t>input_symbol_index_map;
 
 	for (int symbol_node_index = 0; symbol_node_index < symbol_nodes.size(); symbol_node_index++)
 	{
-		TTanGramIntermSymbol* symbol_node = symbol_nodes[symbol_node_index];
-		symbol_node->setScopeType(ESymbolScopeType::SST_NoAssign);
+		// 首先遍历所有input nodes，看看其是否是input，如果是，判断这个symbol是否之前出现过
+		ESymbolState symbol_state = ESymbolState::SS_None;
 
-		XXH64_hash_t name_hash = XXH64(symbol_node->getName().data(), symbol_node->getName().size(), global_seed);
+		TTanGramIntermSymbol* symbol_node = symbol_nodes[symbol_node_index];
+		symbol_node->setScopeType(scopeType);
+
+		XXH32_hash_t name_hash = XXH32(symbol_node->getName().data(), symbol_node->getName().size(), global_seed);
 
 		// input node index
-		auto input_iter = std::find(input_hash_nodes.begin(), input_hash_nodes.end(), name_hash);
-		if (input_iter != input_hash_nodes.end())
+		auto iter = symbol_state_map.find(name_hash);
+		if (iter != symbol_state_map.end() && ((iter->second & ESymbolState::SS_InputSymbol) != 0))
 		{
 			auto input_index_iter = input_symbol_index_map.find(name_hash);
 			if (input_index_iter != input_symbol_index_map.end())
@@ -42,6 +42,7 @@ TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextNoAssign(std::v
 			else
 			{
 				symbol_node->setAsInputIndex(input_index);
+				input_symbol_index_map[name_hash] = input_index;
 				input_index++;
 			}
 
@@ -49,55 +50,79 @@ TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextNoAssign(std::v
 		}
 
 		// output node index
-		auto output_iter = std::find(output_hash_nodes.begin(), output_hash_nodes.end(), name_hash);
-		if (output_iter != output_hash_nodes.end())
+		if (iter != symbol_state_map.end() && ((iter->second & ESymbolState::SS_OutputSymbol) != 0))
 		{
 			symbol_node->setAsOutputIndex(output_index);
 			output_index++;
 			symbol_state = ESymbolState(symbol_state | ESymbolState::SS_OutputSymbol);
 		}
 
-		symbol_node->setSymbolState(symbol_state);
+		symbol_node->addSymbolState(symbol_state);
+
+		if (linker_node_map.find(name_hash) != linker_node_map.end())
+		{
+			symbol_node->addSymbolState(ESymbolState::SS_LinkerSymbol);
+		}
+		if (scopeType == SST_AssignUnit)
+		{
+			assert(symbol_state != SS_InoutSymbol);
+		}
 	}
+
+	
 
 	return getCopyedNodeAndResetContextImpl();
 }
 
-TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextAssignNode(XXH64_hash_t output_hash_node)
-{
-	long long input_index = 0;
-	std::unordered_map<XXH64_hash_t, int32_t>input_symbol_index_map;
-
-	for (int symbol_node_index = 0; symbol_node_index < symbol_nodes.size(); symbol_node_index++)
-	{
-		TTanGramIntermSymbol* symbol_node = symbol_nodes[symbol_node_index];
-		symbol_node->setScopeType(ESymbolScopeType::SST_AssignUnit);
-		XXH64_hash_t name_hash = XXH64(symbol_node->getName().data(), symbol_node->getName().size(), global_seed);
-		
-		if (name_hash != output_hash_node)
-		{
-			auto input_index_iter = input_symbol_index_map.find(name_hash);
-			if (input_index_iter != input_symbol_index_map.end())
-			{
-				symbol_node->setAsInputIndex(input_index_iter->second);
-			}
-			else
-			{
-				symbol_node->setAsInputIndex(input_index);
-				input_index++;
-			}
-
-			symbol_node->setSymbolState(ESymbolState::SS_InputSymbol);
-		}
-		else
-		{
-			symbol_node->setAsOutputIndex(0);
-			symbol_node->setSymbolState(ESymbolState::SS_OutputSymbol);
-		}
-	}
-
-	return getCopyedNodeAndResetContextImpl();
-}
+//TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextAssignNode(XXH32_hash_t output_hash_node)
+//{
+//	long long input_index = 0;
+//	std::unordered_map<XXH32_hash_t, int32_t>input_symbol_index_map;
+//
+//	for (int symbol_node_index = 0; symbol_node_index < symbol_nodes.size(); symbol_node_index++)
+//	{
+//		TTanGramIntermSymbol* symbol_node = symbol_nodes[symbol_node_index];
+//		if (symbol_node->getName() == "out_var_SV_Target0")
+//		{
+//			int debug_avr = 1;
+//
+//		}
+//		symbol_node->setScopeType(ESymbolScopeType::SST_AssignUnit);
+//		XXH32_hash_t name_hash = XXH32(symbol_node->getName().data(), symbol_node->getName().size(), global_seed);
+//		
+//		if (name_hash != output_hash_node)
+//		{
+//			auto input_index_iter = input_symbol_index_map.find(name_hash);
+//			if (input_index_iter != input_symbol_index_map.end())
+//			{
+//				if (symbol_nodes.size() == 4 && input_index_iter->second == 2)
+//				{
+//					int debug_avr = 1;
+//				}
+//				symbol_node->setAsInputIndex(input_index_iter->second);
+//			}
+//			else
+//			{
+//				if (symbol_nodes.size() == 4 && input_index == 2)
+//				{
+//					int debug_avr = 1;
+//				}
+//				symbol_node->setAsInputIndex(input_index);
+//				input_symbol_index_map[name_hash] = input_index;
+//				input_index++;
+//			}
+//
+//			symbol_node->setSymbolState(ESymbolState::SS_InputSymbol);
+//		}
+//		else
+//		{
+//			symbol_node->setAsOutputIndex(0);
+//			symbol_node->setSymbolState(ESymbolState::SS_OutputSymbol);
+//		}
+//	}
+//
+//	return getCopyedNodeAndResetContextImpl();
+//}
 
 TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextLinkNode()
 {
@@ -105,7 +130,7 @@ TIntermNode* CGlobalAstNodeDeepCopy::getCopyedNodeAndResetContextLinkNode()
 	TTanGramIntermSymbol* symbol_node = symbol_nodes[0];
 	symbol_node->setScopeType(ESymbolScopeType::SST_LinkerNode);
 	symbol_node->setAsOutputIndex(0);
-	symbol_node->setSymbolState(ESymbolState::SS_OutputSymbol);
+	symbol_node->addSymbolState(ESymbolState::SS_OutputSymbol);
 	return getCopyedNodeAndResetContextImpl();
 }
 
@@ -147,7 +172,7 @@ bool CGlobalAstNodeDeepCopy::visitBinary(TVisit visit, TIntermBinary* node)
 
 			const TTypeList* structure = type.getStruct();
 
-			const TString struct_string = getTypeText(type);
+			const TString struct_string = getTypeText_HashTree(type);
 			XXH32_hash_t struct_inst_hash = XXH32(struct_string.data(), struct_string.size(), global_seed);
 
 			int16_t struct_size = 0;
@@ -258,7 +283,7 @@ void CGlobalAstNodeDeepCopy::visitConstantUnion(TIntermConstantUnion* node)
 {
 	setGlobalASTPool();
 	char* node_mem = reinterpret_cast<char*>(global_allocator.allocate(sizeof(TIntermConstantUnion)));
-	TIntermConstantUnion* new_node = new(node_mem)TIntermConstantUnion(node->getConstArray(), *node->getType().clone());
+	TIntermConstantUnion* new_node = new(node_mem)TIntermConstantUnion(TConstUnionArray(node->getConstArray(), 0, node->getConstArray().size()), *node->getType().clone());
 	if (node->isLiteral()) { new_node->setLiteral(); };
 	node_stack_context.push_back(new_node);
 	resetGlobalASTPool();

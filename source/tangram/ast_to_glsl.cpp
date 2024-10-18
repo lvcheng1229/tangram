@@ -1,11 +1,14 @@
 #include "ast_tranversar.h"
 #include "ast_node_deepcopy.h"
+#include "glslang_helper.h"
 
 //todo: 
 // 1. fix bug xyzw.x -> to .x
 // 2. mat fold highp vec3 _23=max(pc2_h[0].xyzw.xyz*dot(vec3(abs(_28.x),abs(_28.y),abs(_28.z)),vec3(0.300048828125,0.58984375,0.1099853515625)),vec3(0.))*1.;
 // 3. use node path instead of swizzle context
 
+//todo:
+// fix me visitSwitch ternarynode
 
 #if TANGRAM_DEBUG
 #include <fstream>
@@ -128,7 +131,44 @@ void TAstToGLTraverser::declareSubScopeSymbol()
 }
 
 
-TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
+
+TString getArraySize(const TType& type)
+{
+    TString type_string;
+
+    const auto appendStr = [&](const char* s) { type_string.append(s); };
+    const auto appendUint = [&](unsigned int u) { type_string.append(std::to_string(u).c_str()); };
+    const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
+
+    if (type.isArray())
+    {
+        const TArraySizes* array_sizes = type.getArraySizes();
+        for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
+        {
+            int size = array_sizes->getDimSize(i);
+            if (size == UnsizedArraySize && i == 0 && array_sizes->isVariablyIndexed())
+            {
+                assert_t(false);
+            }
+            else
+            {
+                if (size == UnsizedArraySize)
+                {
+                    assert_t(false);
+                }
+                else
+                {
+                    appendStr("[");
+                    appendInt(array_sizes->getDimSize(i));
+                    appendStr("]");
+                }
+            }
+        }
+    }
+    return type_string;
+}
+
+TString getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision)
 {
     TString type_string;
 
@@ -149,11 +189,11 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
         return TString();
     }
 
-    bool should_output_precision_str = ((basic_type == EbtFloat) && type.getQualifier().precision != EpqNone && (!(ignore_medium_presion_out && type.getQualifier().precision == EpqMedium))) || basic_type == EbtSampler;
-    
-    if(getQualifiers)
+    bool should_output_precision_str = ((basic_type == EbtFloat) && type.getQualifier().precision != EpqNone && (!(true && type.getQualifier().precision == EpqMedium))) || basic_type == EbtSampler;
+
+    if (getQualifiers)
     {
-        
+
         if (qualifier.hasLayout())
         {
             appendStr("layout(");
@@ -168,14 +208,14 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
             }
             appendStr(")");
         }
-        
+
 
         if (qualifier.flat)
         {
             appendStr(" flat");
             appendStr(" ");
         }
-            
+
         //bool should_out_storage_qualifier = ((basic_type == EbtBlock) || (basic_type == EbtSampler));
         bool should_out_storage_qualifier = true;
         if (type.getQualifier().storage == EvqTemporary ||
@@ -196,7 +236,7 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
             appendStr(" ");
         }
     }
-    
+
     if ((getQualifiers == false) && getPrecision)
     {
         if (should_output_precision_str)
@@ -230,7 +270,7 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
 
     if (type.isParameterized())
     {
-        assert_t(false);
+        assert(false);
     }
 
     if (is_mat)
@@ -278,62 +318,23 @@ TString TAstToGLTraverser::getTypeText(const TType& type, bool getQualifiers, bo
     {
         const TTypeList* structure = type.getStruct();
         appendStr("{");
-        
-        for (size_t i = 0; i < structure->size(); ++i) 
+
+        for (size_t i = 0; i < structure->size(); ++i)
         {
             TType* struct_mem_type = (*structure)[i].type;
             bool hasHiddenMember = struct_mem_type->hiddenMember();
-            assert_t(hasHiddenMember == false);
+            assert(hasHiddenMember == false);
             type_string.append(getTypeText(*struct_mem_type, false, true));
             if (struct_mem_type->isArray())
             {
                 type_string.append(getArraySize(*struct_mem_type));
             }
             appendStr(";");
-            if (!enable_line_feed_optimize)
-            {
-                appendStr("\n");
-            }
+            appendStr("\n");
         }
         appendStr("}");
     }
 
-    return type_string;
-}
-
-TString TAstToGLTraverser::getArraySize(const TType& type)
-{
-    TString type_string;
-
-    const auto appendStr = [&](const char* s) { type_string.append(s); };
-    const auto appendUint = [&](unsigned int u) { type_string.append(std::to_string(u).c_str()); };
-    const auto appendInt = [&](int i) { type_string.append(std::to_string(i).c_str()); };
-
-    if (type.isArray())
-    {
-        const TArraySizes* array_sizes = type.getArraySizes();
-        for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
-        {
-            int size = array_sizes->getDimSize(i);
-            if (size == UnsizedArraySize && i == 0 && array_sizes->isVariablyIndexed())
-            {
-                assert_t(false);
-            }
-            else
-            {
-                if (size == UnsizedArraySize)
-                {
-                    assert_t(false);
-                }
-                else
-                {
-                    appendStr("[");
-                    appendInt(array_sizes->getDimSize(i));
-                    appendStr("]");
-                }
-            }
-        }
-    }
     return type_string;
 }
 
@@ -404,16 +405,24 @@ bool TAstToGLTraverser::visitBinary(TVisit visit, TIntermBinary* node)
     {
         if (visit == EvPreVisit)
         {
-            bool reference = node->getLeft()->getType().isReference();
-            assert_t(reference == false);
+            if (is_codeblock_tranverser)
+            {
+                code_buffer.append(getTanGramNode(node->getLeft()->getAsSymbolNode())->getSymbolName(code_block_generate_context.ipt_variable_names, code_block_generate_context.opt_variable_names));
+            }
+            else
+            {
+                bool reference = node->getLeft()->getType().isReference();
+                assert_t(reference == false);
 
-            const TTypeList* members = reference ? node->getLeft()->getType().getReferentType()->getStruct() : node->getLeft()->getType().getStruct();
-            int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
-            const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
+                const TTypeList* members = reference ? node->getLeft()->getType().getReferentType()->getStruct() : node->getLeft()->getType().getStruct();
+                int member_index = node->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
+                const TString& index_direct_struct_str = (*members)[member_index].type->getFieldName();
 
-            code_buffer.append(node->getLeft()->getAsSymbolNode()->getName());
-            code_buffer.append(".");
-            code_buffer.append(index_direct_struct_str);
+                code_buffer.append(node->getLeft()->getAsSymbolNode()->getName());
+                code_buffer.append(".");
+                code_buffer.append(index_direct_struct_str);
+            }
+
 
             // no need to output the struct name
             return false;
@@ -538,7 +547,13 @@ bool TAstToGLTraverser::isSymbolDeclared(TIntermSymbol* node)
 {
     if (is_codeblock_tranverser)
     {
-        const TString& symbol_name = node->getName();
+        if ((!code_block_generate_context.visit_linker_scope) && getTanGramNode(node)->isLinkerSymbol())
+        {
+            return true;
+        }
+
+        // 我们使用重命名后的名字来判断是否被命名过
+        const TString& symbol_name = getTanGramNode(node)->getSymbolName(code_block_generate_context.ipt_variable_names, code_block_generate_context.opt_variable_names);
         XXH32_hash_t symbol_name_hash = XXH32(symbol_name.c_str(), symbol_name.length(), global_seed);
         std::set<XXH32_hash_t>& declared_symbols_hash = code_block_generate_context.declared_symbols_hash;
         auto iter = declared_symbols_hash.find(symbol_name_hash);
@@ -944,9 +959,29 @@ bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
         return false;
     }
 
-    subscope_tranverser.resetSubScopeMinMaxLine();
-    subscope_tranverser.visitSelection(EvPreVisit, node);
-    declareSubScopeSymbol();
+    bool is_ternnary = false;
+
+    TIntermNode* true_block = node->getTrueBlock();
+    TIntermNode* false_block = node->getFalseBlock();
+
+    if ((true_block != nullptr) && (false_block != nullptr))
+    {
+        int true_block_line = true_block->getLoc().line;
+        int false_block_line = false_block->getLoc().line;
+        if (abs(true_block_line - false_block_line) <= 1)
+        {
+            is_ternnary = true;
+        }
+    }
+
+    if (!(is_codeblock_tranverser && is_ternnary))
+    {
+        //todo
+        subscope_tranverser.resetSubScopeMinMaxLine();
+        subscope_tranverser.visitSelection(EvPreVisit, node);
+        declareSubScopeSymbol();
+    }
+
 
     if (node->getShortCircuit() == false)
     {
@@ -963,20 +998,7 @@ bool TAstToGLTraverser::visitSelection(TVisit, TIntermSelection* node)
         assert_t(false);
     }
 
-    bool is_ternnary = false;
    
-    TIntermNode* true_block = node->getTrueBlock();
-    TIntermNode* false_block = node->getFalseBlock();
-
-    if ((true_block != nullptr) && (false_block != nullptr))
-    {
-        int true_block_line = true_block->getLoc().line;
-        int false_block_line = false_block->getLoc().line;
-        if (abs(true_block_line - false_block_line) <= 1)
-        {
-            is_ternnary = true;
-        }
-    }
 
     if (is_ternnary)
     {
@@ -1492,7 +1514,7 @@ void TAstToGLTraverser::visitSymbol(TIntermSymbol* node)
 
     if (is_codeblock_tranverser)
     {
-        if (getTanGramNode(node)->isLinkerNode())
+        if (getTanGramNode(node)->isLinkerNodeScope())
         {
             code_buffer.append(";");
             if (!enable_line_feed_optimize)

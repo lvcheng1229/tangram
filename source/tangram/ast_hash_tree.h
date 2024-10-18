@@ -1,6 +1,7 @@
 #pragma once
 #include "ast_tranversar.h"
 #include "xxhash.h"
+#include "ast_node_deepcopy.h"
 
 // 第 i个输入symbol所对应的上个节点的第j个输出
 struct CHashEdge
@@ -173,10 +174,17 @@ private:
 			no_assign_context.symbol_inout_hashmap.clear();
 			output_hash_value.clear();
 			input_hash_value.clear();
+			symbol_state_map.clear();
 		}
 
 		inline void addUniqueHashValue(XXH64_hash_t hash, const TString& symbol_name)
 		{
+			XXH32_hash_t symbol_name_hash = XXH32(symbol_name.c_str(), symbol_name.length(), global_seed);
+			if (symbol_state_map.find(symbol_name_hash) == symbol_state_map.end())
+			{
+				symbol_state_map[symbol_name_hash] = SS_None;
+			}
+
 			// op assign scope
 			{
 				if (op_assign_context.visit_input_symbols)
@@ -190,6 +198,7 @@ private:
 					}
 
 					input_hash_value.push_back(hash);
+					symbol_state_map[symbol_name_hash] = ESymbolState(symbol_state_map[symbol_name_hash] | ESymbolState::SS_InputSymbol);
 				}
 
 				if (op_assign_context.visit_output_symbols)
@@ -204,17 +213,18 @@ private:
 					}
 
 					output_hash_value.push_back(hash);
+					symbol_state_map[symbol_name_hash] = ESymbolState(symbol_state_map[symbol_name_hash] | ESymbolState::SS_OutputSymbol);
 				}
 			}
 
 			// non-assign scope example: loop / switch
 			if ((!op_assign_context.visit_input_symbols) && (!op_assign_context.visit_output_symbols) && (no_assign_context.symbol_inout_hashmap.size() != 0))
 			{
-				XXH32_hash_t symbol_name_inout_hash = XXH32(symbol_name.c_str(), symbol_name.length(), global_seed);
-				auto iter = no_assign_context.symbol_inout_hashmap.find(symbol_name_inout_hash);
+				
+				auto iter = no_assign_context.symbol_inout_hashmap.find(symbol_name_hash);
 				if (iter != no_assign_context.symbol_inout_hashmap.end())
 				{
-					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_inout_hash];
+					uint32_t symbol_inout_state = no_assign_context.symbol_inout_hashmap[symbol_name_hash];
 					if ((symbol_inout_state == 2 || symbol_inout_state == 1) && no_assign_context.visit_assigned_symbols) // output( state = 1 ) symbols or inout symbols( state = 2 )
 					{
 						for (uint32_t idx = 0; idx < output_hash_value.size(); idx++)
@@ -225,6 +235,7 @@ private:
 							}
 						}
 						output_hash_value.push_back(hash);
+						symbol_state_map[symbol_name_hash] = ESymbolState(symbol_state_map[symbol_name_hash] | ESymbolState::SS_OutputSymbol);
 					}
 					
 					if (symbol_inout_state == 2 || symbol_inout_state == 0) // input symbols( state = 0) or inout symbols( state = 2 )
@@ -237,6 +248,7 @@ private:
 							}
 						}
 						input_hash_value.push_back(hash);
+						symbol_state_map[symbol_name_hash] = ESymbolState(symbol_state_map[symbol_name_hash] | ESymbolState::SS_InputSymbol);
 					}
 				}
 			}
@@ -245,6 +257,7 @@ private:
 		// 获得所有输出Symbol的HashValue，用于更新某个Symbol上一个被赋值是在哪个节点
 		inline std::vector<XXH64_hash_t>& getOutputHashValues() { return output_hash_value; }
 		inline std::vector<XXH64_hash_t>& getInputHashValues() { return input_hash_value; }
+		inline std::unordered_map<XXH32_hash_t, ESymbolState>& getSymbolStateMap() { return symbol_state_map; }
 
 		// 用于变量重命名，标记某个symbol是第几个输出，第几个输入
 		inline void buildInputOutputSymbolIndexMap(CHashNode& hash_node)
@@ -262,6 +275,9 @@ private:
 		}
 
 	private:
+		// 用于判断符号是输入符号还是输出符号，在deep copy的时候会用到
+		std::unordered_map<XXH32_hash_t, ESymbolState> symbol_state_map;
+
 		// input symbol hash value and output symbol hash value
 		std::vector<XXH64_hash_t>output_hash_value;
 		std::vector<XXH64_hash_t>input_hash_value;
@@ -271,6 +287,9 @@ private:
 
 	int hash_value_stack_max_depth = 0;
 	std::vector<XXH64_hash_t> hash_value_stack;
+
+	// 记录所有linker node的哈希，用于deep copy时判断node属性
+	std::set<XXH32_hash_t> linker_nodes_hash;
 
 	std::set<long long> declared_symbols_id;
 

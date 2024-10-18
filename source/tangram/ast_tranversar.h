@@ -155,7 +155,7 @@ struct SCodeBlockGenerateContext
 {
     std::vector<std::string>* ipt_variable_names;
     std::vector<std::string>* opt_variable_names;
-
+    bool visit_linker_scope = false;
     std::set<XXH32_hash_t> declared_symbols_hash;
 };
 
@@ -224,10 +224,11 @@ public:
 
     inline void appendDebugString(const TString& debug_str) { code_buffer.append(debug_str); }
 
-    inline void setCodeBlockContext(std::vector<std::string>* ipt_variable_names, std::vector<std::string>* opt_variable_names)
+    inline void setCodeBlockContext(std::vector<std::string>* ipt_variable_names, std::vector<std::string>* opt_variable_names, bool visit_linker_scope = false)
     {
         code_block_generate_context.ipt_variable_names = ipt_variable_names;
         code_block_generate_context.opt_variable_names = opt_variable_names;
+        code_block_generate_context.visit_linker_scope = visit_linker_scope;
     }
 
     inline std::string getCodeUnitString()
@@ -247,15 +248,15 @@ private:
     void declareSubScopeSymbol();
     void outputConstantUnion(const TIntermConstantUnion* node, const TConstUnionArray& constUnion);
 
-    TString getTypeText(const TType& type, bool getQualifiers = true, bool getSymbolName = false, bool getPrecision = true);
+    
     
 
-    TString getArraySize(const TType& type);
+   // TString getArraySize(const TType& type);
 
 protected:
     bool enable_line_feed_optimize = false;
     bool enable_white_space_optimize = true;
-    bool ignore_medium_presion_out = true;
+    //bool ignore_medium_presion_out = true;
     //bool enable_symbol_name_optimization = false;
 
     struct SParserContext

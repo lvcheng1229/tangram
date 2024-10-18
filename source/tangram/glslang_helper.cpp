@@ -12,29 +12,28 @@ int32_t getTypeSize(const TType& type)
     assert(precision != TPrecisionQualifier::EpqLow);
 
     int32_t basic_size = 0;
+	switch (basic_type)
+	{
+	case EbtDouble:
+		basic_size = 8;
+		break;
+	case EbtInt:
+		basic_size = 4;
+		break;
+	case EbtUint:
+		basic_size = 4;
+		break;
+	case EbtBool:
+		assert(false);
+		break;
+	case EbtFloat:
+		basic_size = 4;
+	default:
+		break;
+	}
 
     if (is_vec)
     {
-        switch (basic_type)
-        {
-        case EbtDouble:
-            basic_size = 8;
-            break;
-        case EbtInt:
-            basic_size = 4;
-            break;
-        case EbtUint:
-            basic_size = 4;
-            break;
-        case EbtBool:
-            assert(false);
-            break;
-        case EbtFloat:
-            basic_size = 4;
-        default:
-            break;
-        }
-
         basic_size *= type.getVectorSize();
     }
 
@@ -51,10 +50,21 @@ int32_t getTypeSize(const TType& type)
         basic_size /= 2;
     }
 
+	if (type.isArray())
+	{
+		int array_ellement = 1;
+		const TArraySizes* array_sizes = type.getArraySizes();
+		for (int i = 0; i < (int)array_sizes->getNumDims(); ++i)
+		{
+			array_ellement *= array_sizes->getDimSize(i);
+		}
+		basic_size *= array_ellement;
+	}
+
     return basic_size;
 }
 
-TString getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision, bool getLayoutLocation)
+TString getTypeText_HashTree(const TType& type, bool getQualifiers, bool getSymbolName, bool getPrecision, bool getLayoutLocation)
 {
 	TString type_string;
 
@@ -164,5 +174,13 @@ TString getTypeText(const TType& type, bool getQualifiers, bool getSymbolName, b
 		appendStr(type.getBasicTypeString().c_str());
 	}
 
+	if (basic_type == EbtBlock)
+	{
+		type_string.append(type.getTypeName());
+	}
+
 	return type_string;
 }
+
+
+

@@ -23,6 +23,8 @@
 static CGlobalGraphsBuilder* global_graph_builder = nullptr;
 static CGlobalAstNodeDeepCopy* global_ast_node_recursive_copy = nullptr;
 static TPoolAllocator* global_ast_node_copy_pool = nullptr;
+static CVariableNameManager* global_variable_name_manager = nullptr;
+
 using namespace tangram;
 using namespace boost;
 
@@ -781,6 +783,7 @@ void initGlobalShaderGraphBuild()
 		global_graph_builder = new CGlobalGraphsBuilder();
 		global_ast_node_recursive_copy = new CGlobalAstNodeDeepCopy();
 		global_ast_node_copy_pool = new TPoolAllocator();
+		global_variable_name_manager = new CVariableNameManager();
 	}
 }
 
@@ -802,6 +805,11 @@ CGlobalAstNodeDeepCopy* getGlobalAstNodeRecursiveCopy()
 TPoolAllocator* getGetGlobalAstNodePool()
 {
 	return global_ast_node_copy_pool;
+}
+
+CVariableNameManager* getGlobalVariableNameManager()
+{
+	return global_variable_name_manager;
 }
 
 void buildGlobalShaderGraph()

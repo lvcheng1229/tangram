@@ -66,6 +66,8 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 		{
 			if (visit == EvPreVisit)
 			{
+				
+
 #if TANGRAM_DEBUG
 				debug_traverser.visitBinary(EvPreVisit, node);
 				debug_traverser.incrementDepth(node);
@@ -84,9 +86,10 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				if (node->getLeft())
 				{
 					builder_context.op_assign_context.visit_output_symbols = true;
-
 					node->getLeft()->traverse(this);
 					builder_context.op_assign_context.visit_output_symbols = false;
+
+					
 
 				}
 
@@ -130,7 +133,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(false);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				assert(builder_context.getOutputHashValues().size() == 1);
-				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextAssignNode(builder_context.getOutputHashValues()[0]);
+				func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContext(builder_context.getSymbolStateMap(),ESymbolScopeType::SST_AssignUnit, linker_nodes_hash);
 				{
 					tree_hash_nodes.push_back(func_hash_node);
 					hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
@@ -166,7 +169,7 @@ bool CASTHashTreeBuilder::visitBinary(TVisit visit, TIntermBinary* node)
 
 			TIntermSymbol* symbol_node = node->getLeft()->getAsSymbolNode();
 			const TType& type = symbol_node->getType();
-			TString block_hash_string = getTypeText(type);
+			TString block_hash_string = getTypeText_HashTree(type);
 
 			TString struct_string = block_hash_string;
 			struct_string.append(symbol_node->getName());
@@ -872,7 +875,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	if (is_declared == false)
 	{
 		const TType& type = node->getType();
-		TString hash_string = getTypeText(type);
+		TString hash_string = getTypeText_HashTree(type);
 
 		TBasicType basic_type = type.getBasicType();
 
@@ -937,6 +940,9 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					node->traverse(getGlobalAstNodeRecursiveCopy());
 					linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 					linker_node.is_ub_member = true;
+					linker_node.symbol_name = type.getTypeName();
+
+					linker_nodes_hash.insert(XXH32(node->getName().data(), node->getName().size(), global_seed));
 
 					SUniformBufferMemberDesc* ub_desc = getTanGramNode(linker_node.interm_node->getAsSymbolNode())->getUBMemberDesc();
 					ub_desc->struct_instance_hash = struct_inst_hash;
@@ -972,6 +978,9 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 
 				linker_node.should_rename = false;
 				linker_node.symbol_name = node->getName();
+
+				linker_nodes_hash.insert(XXH32(node->getName().data(), node->getName().size(), global_seed));
+
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -991,6 +1000,8 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
+				linker_nodes_hash.insert(XXH32(node->getName().data(), node->getName().size(), global_seed));
 
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
@@ -1017,6 +1028,8 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 				node->traverse(getGlobalAstNodeRecursiveCopy());
 				linker_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
 
+				linker_nodes_hash.insert(XXH32(node->getName().data(), node->getName().size(), global_seed));
+
 				tree_hash_nodes.push_back(linker_node);
 				hash_value_to_idx[hash_value] = tree_hash_nodes.size() - 1;
 			}
@@ -1038,6 +1051,8 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 					getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(true);
 					node->traverse(getGlobalAstNodeRecursiveCopy());
 					symbol_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextLinkNode();
+
+					linker_nodes_hash.insert(XXH32(node->getName().data(), node->getName().size(), global_seed));
 
 					tree_hash_nodes.push_back(symbol_hash_node);
 					hash_value_to_idx[out_scope_hash] = tree_hash_nodes.size() - 1;
@@ -1087,7 +1102,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 	else
 	{
 		const TType& type = node->getType();
-		TString hash_string = getTypeText(type);
+		TString hash_string = getTypeText_HashTree(type);
 		hash_value_stack_max_depth++;
 
 		if (type.getBasicType() == EbtSampler)
@@ -1103,7 +1118,7 @@ void CASTHashTreeBuilder::visitSymbol(TIntermSymbol* node)
 			XXH64_hash_t out_scope_hash = XXH64(hash_string.data(), hash_string.size(), global_seed);
 			builder_context.addUniqueHashValue(out_scope_hash, node->getName());
 
-			TString hash_string_wihtout_location = getTypeText(type, true, true, true, false);
+			TString hash_string_wihtout_location = getTypeText_HashTree(type, true, true, true, false);
 			XXH64_hash_t in_scope_hash_value = XXH64(hash_string_wihtout_location.data(), hash_string_wihtout_location.size(), global_seed);
 			hash_value_stack.push_back(in_scope_hash_value);
 		}
@@ -1456,7 +1471,7 @@ void CASTHashTreeBuilder::generateHashNode(const TString& hash_string, XXH64_has
 
 	getGlobalAstNodeRecursiveCopy()->setDeepCopyContext(false);
 	node->traverse(getGlobalAstNodeRecursiveCopy());
-	func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContextNoAssign(builder_context.getInputHashValues(), builder_context.getOutputHashValues());
+	func_hash_node.interm_node = getGlobalAstNodeRecursiveCopy()->getCopyedNodeAndResetContext(builder_context.getSymbolStateMap(), ESymbolScopeType::SST_NoAssign, linker_nodes_hash);
 
 	{
 		tree_hash_nodes.push_back(func_hash_node);

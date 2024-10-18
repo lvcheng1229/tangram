@@ -130,7 +130,7 @@ private:
 
 	CGraph mergeGraph(CGraph* graph_a, CGraph* graph_b);
 	
-	CVariableNameManager variable_name_manager;
+	//CVariableNameManager variable_name_manager;
 
 #if TANGRAM_DEBUG
 	int graphviz_debug_idx;
@@ -141,5 +141,6 @@ void initGlobalShaderGraphBuild();
 void addHashedGraphToGlobalGraphBuilder(std::vector<CHashNode>& hash_dependency_graphs, int shader_id);
 CGlobalAstNodeDeepCopy* getGlobalAstNodeRecursiveCopy();
 TPoolAllocator* getGetGlobalAstNodePool();
+CVariableNameManager* getGlobalVariableNameManager();
 void buildGlobalShaderGraph();
 void releaseGlobalShaderGraph();

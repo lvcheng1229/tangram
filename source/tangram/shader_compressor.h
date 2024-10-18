@@ -14,19 +14,36 @@
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/topological_sort.hpp>
 
-struct SCodeUnit
-{
-	std::string code;
-};
+//struct SCodeUnit
+//{
+//	std::string code;
+//};
 
 struct SCodeBlock
 {
-	std::vector<SCodeUnit> code_units;
+	SCodeBlock()
+	{
+		is_ub = false;
+		is_main_begin = false;
+		is_main_end = false;
+		vertex_num = 0;
+	}
+
+	bool is_ub;
+	std::string uniform_buffer;
+
+	bool is_main_begin;
+	bool is_main_end;
+
+	int vertex_num;
+	std::string  code;
 };
 
 struct SCodeBlockTable
 {
 	std::vector<SCodeBlock> code_blocks;
+
+	void outputCodeBlockTable();
 };
 
 class CShaderCompressor
@@ -57,6 +74,7 @@ public:
 
 private:
 
+	//void floodSearchBefore(SGraphVertexDesc vtx_desc, std::size_t pre_node_block_hash);
 	void floodSearch(SGraphVertexDesc vtx_desc, std::size_t pre_node_block_hash);
 
 	const std::map<SGraphVertexDesc, std::vector<SGraphEdgeDesc>>& vertex_input_edges;
