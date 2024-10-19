@@ -33,6 +33,24 @@ void SCodeBlockTable::outputCodeBlockTable()
 #endif
 }
 
+void SIndexBitsTable::outputIndexBitsTable()
+{
+#if TANGRAM_DEBUG
+	for (const auto& iter : shader_id_to_bits_idx)
+	{
+		std::cout << "ShaderID:" << iter.first << " BitsArrayIndex:" << iter.second << std::endl;
+		std::cout << "Bits Array:" << std::endl;
+		int bits_array_idx = iter.second;
+		const boost::dynamic_bitset<>& bits_set = index_bits_array[bits_array_idx];
+		for (int bit_idx = 0; bit_idx < bits_set.size(); bit_idx++)
+		{
+			std::cout << bits_set[bit_idx] ? 1 : 0;
+		}
+		std::cout << std::endl;
+	}
+#endif
+}
+
 void generatePadding(std::string& result, int offset, int member_offset, int& padding_index)
 {
 	assert(offset < member_offset);
@@ -195,8 +213,11 @@ void CShaderCompressor::partition()
 				std::sort(ub_mem_descs.begin(), ub_mem_descs.end(), uniformBufferMemberCompare);
 
 				code_block_table.code_blocks.emplace_back(SCodeBlock());
-				code_block_table.code_blocks.back().is_ub = true;
-				code_block_table.code_blocks.back().uniform_buffer = generateUniformBuffer(ub_mem_descs, ub_node, shader_vertex.symbol_name);
+				SCodeBlock& back_code_block = code_block_table.code_blocks.back();
+				SShaderCodeVertexInfomation& shader_info = shader_vertex.vtx_info;
+				back_code_block.shader_ids.insert(back_code_block.shader_ids.end(),shader_info.related_shaders.begin(), shader_info.related_shaders.end());
+				back_code_block.is_ub = true;
+				back_code_block.uniform_buffer = generateUniformBuffer(ub_mem_descs, ub_node, shader_vertex.symbol_name);
 				block_index++;
 			}
 		}
@@ -216,6 +237,11 @@ void CShaderCompressor::partition()
 
 			// code table gen
 			code_block_table.code_blocks.emplace_back(SCodeBlock());
+
+			SCodeBlock& back_code_block = code_block_table.code_blocks.back();
+			SShaderCodeVertexInfomation& shader_info = shader_vertex.vtx_info;
+			back_code_block.shader_ids.insert(back_code_block.shader_ids.end(), shader_info.related_shaders.begin(), shader_info.related_shaders.end());
+
 			glsl_converter->setCodeBlockContext(&shader_vertex.vtx_info.ipt_variable_names, &shader_vertex.vtx_info.opt_variable_names);
 			shader_vertex.interm_node->traverse(glsl_converter);
 			//code_block_table.code_blocks.back().code_units.push_back(SCodeUnit{ glsl_converter->getCodeUnitString() });
@@ -264,6 +290,10 @@ void CShaderCompressor::partition()
 
 			code_block_table.code_blocks.emplace_back(SCodeBlock());
 
+			SCodeBlock& back_code_block = code_block_table.code_blocks.back();
+			SShaderCodeVertexInfomation& shader_info = shader_vertex.vtx_info;
+			back_code_block.shader_ids.insert(back_code_block.shader_ids.end(), shader_info.related_shaders.begin(), shader_info.related_shaders.end());
+
 			// code table gen
 			//glsl_converter->setCodeBlockContext(&shader_vertex.vtx_info.ipt_variable_names, &shader_vertex.vtx_info.opt_variable_names);
 			//shader_vertex.interm_node->traverse(glsl_converter);
@@ -300,6 +330,42 @@ void CShaderCompressor::partition()
 
 #if TANGRAM_DEBUG
 	code_block_table.outputCodeBlockTable();
+#endif
+
+	// generate index bits table
+	;
+	SShaderCodeGraph& shader_code_graph = get_property(graph, boost::graph_name);
+	int related_shader_num = shader_code_graph.shader_ids.size();
+	index_bits_table.index_bits_array.resize(related_shader_num);
+	for (int index = 0; index < related_shader_num; index++)
+	{
+		index_bits_table.shader_id_to_bits_idx[shader_code_graph.shader_ids[index]] = index;
+		index_bits_table.index_bits_array[index].resize(alignValue(block_index, 8), 0);
+	}
+	
+	for (int cb_idx = 0; cb_idx < block_index; cb_idx++)
+	{
+		const SCodeBlock& code_block = code_block_table.code_blocks[cb_idx];
+		if (code_block.is_main_begin || code_block.is_main_end)
+		{
+			for (int related_idx = 0;  related_idx<shader_code_graph.shader_ids.size(); related_idx++)
+			{
+				const int bits_array_index = index_bits_table.shader_id_to_bits_idx[shader_code_graph.shader_ids[related_idx]];
+				index_bits_table.index_bits_array[bits_array_index].set(cb_idx);
+			}
+		}
+		else
+		{
+			for (int related_idx = 0; related_idx< code_block.shader_ids.size(); related_idx++)
+			{
+				const int bits_array_index = index_bits_table.shader_id_to_bits_idx[code_block.shader_ids[related_idx]];
+				index_bits_table.index_bits_array[bits_array_index].set(cb_idx);
+			}
+		}
+		
+	}
+#if TANGRAM_DEBUG
+	index_bits_table.outputIndexBitsTable();
 #endif
 
 	glsl_converter = nullptr;

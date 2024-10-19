@@ -49,6 +49,8 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 	CGraph builded_graph;
 	VertexNameMap vtx_name_map = get(boost::vertex_name, builded_graph);
 	EdgeNameMap edge_name_map = get(boost::edge_name, builded_graph);
+	SShaderCodeGraph& shader_code_graph = get_property(builded_graph, graph_name);
+	shader_code_graph.shader_ids.push_back(shader_id);
 
 	for (auto& iter : hash_dependency_graphs)
 	{
@@ -109,6 +111,8 @@ void CGlobalGraphsBuilder::addHashDependencyGraph(std::vector<CHashNode>& hash_d
 	// 对Graph进行处理，移除所有孤立点，即和当前Graph不相连的点
 	// 看能否移除这个步骤，目前时不能的，有些uniform buffer的一些成员变量是不会被用到的
 	CGraph processed_graph;
+	SShaderCodeGraph& shader_code_graph_processed = get_property(processed_graph, graph_name);
+	shader_code_graph_processed.shader_ids.push_back(shader_id);
 	{
 		VertexNameMap new_vtx_name_map = get(boost::vertex_name, processed_graph);
 		EdgeNameMap new_edge_name_map = get(boost::edge_name, processed_graph);
@@ -180,6 +184,7 @@ void CGlobalGraphsBuilder::visGraph(CGraph* graph, bool visualize_symbol_name, b
 	VertexIndexMap vertex_index_map = get(vertex_index, *graph);
 	VertexNameMap vertex_name_map = get(vertex_name, *graph);
 	EdgeNameMap edge_name_map = get(edge_name, *graph);
+	
 
 	auto out_vetices = boost::vertices(*graph);
 	for (auto vp = out_vetices; vp.first != vp.second; ++vp.first)
@@ -247,9 +252,9 @@ void CGlobalGraphsBuilder::visGraph(CGraph* graph, bool visualize_symbol_name, b
 			{
 				std::hash<int> int_hash;
 				std::size_t hash_value = int_hash(shader_code_vtx.code_block_index);
-				char red = (hash_value & 0xFF); red = red < 120 ? (red * 2) : red;
-				char green = ((hash_value >> 8)& 0xFF); green = green < 80 ? (green * 2) : green;
-				char blue = (hash_value >> 16)& 0xFF; blue = blue < 60 ? (blue * 2) : blue;
+				char red = (hash_value & 0xFF); //red = red < 120 ? (red * 2) : red;
+				char green = ((hash_value >> 8)& 0xFF); //green = green < 80 ? (green * 2) : green;
+				char blue = (hash_value >> 16)& 0xFF; //blue = blue < 60 ? (blue * 2) : blue;
 				out_dot_file += std::format(",style=\"filled\",color = \"#{:x}{:x}{:x}\"", red, green, blue);
 			}
 			out_dot_file += " ]\n";
@@ -577,6 +582,10 @@ public:
 		vtx_name_map_new_graph = get(boost::vertex_name, new_graph);
 		edge_name_map_new_graph = get(boost::edge_name, new_graph);
 
+		SShaderCodeGraph& new_shader_code_graph = get_property(new_graph, boost::graph_name);
+		SShaderCodeGraph& shader_code_graph_b = get_property(ipt_graph_b, boost::graph_name);
+		new_shader_code_graph.shader_ids.insert(new_shader_code_graph.shader_ids.end(), shader_code_graph_b.shader_ids.begin(), shader_code_graph_b.shader_ids.end());
+
 		CStartVertexVisitor ipt_vtx_visitor_b(m_graph_b, nullptr, &st_vtx_descs_b);
 		depth_first_search(m_graph_b, visitor(ipt_vtx_visitor_b));
 
@@ -754,7 +763,7 @@ CGraph CGlobalGraphsBuilder::mergeGraph(CGraph* graph_a, CGraph* graph_b)
 	shaderGraphLevelCompress(&new_graph, vertex_input_edges);
 
 #if TANGRAM_DEBUG
-	visGraph(&new_graph, true, false, false);
+	visGraph(&new_graph, true, true, true);
 #endif
 	//查找最大公共子图的时候记录graph1 的最大公共子图的所有index
 

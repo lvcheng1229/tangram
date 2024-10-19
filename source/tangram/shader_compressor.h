@@ -14,6 +14,8 @@
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/topological_sort.hpp>
 
+#include <boost/dynamic_bitset.hpp>
+
 //struct SCodeUnit
 //{
 //	std::string code;
@@ -37,6 +39,8 @@ struct SCodeBlock
 
 	int vertex_num;
 	std::string  code;
+
+	std::vector<int> shader_ids;
 };
 
 struct SCodeBlockTable
@@ -44,6 +48,14 @@ struct SCodeBlockTable
 	std::vector<SCodeBlock> code_blocks;
 
 	void outputCodeBlockTable();
+};
+
+struct SIndexBitsTable
+{
+	std::unordered_map<int, int> shader_id_to_bits_idx;
+	std::vector<boost::dynamic_bitset<>> index_bits_array;
+
+	void outputIndexBitsTable();
 };
 
 class CShaderCompressor
@@ -89,5 +101,7 @@ private:
 	TPoolAllocator* builtInPoolAllocator;
 
 	SCodeBlockTable code_block_table;
+	SIndexBitsTable index_bits_table;
+
 	TAstToGLTraverser* glsl_converter;
 };

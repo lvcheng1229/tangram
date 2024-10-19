@@ -79,6 +79,11 @@ struct SShaderCodeEdge
 	std::map<uint32_t, uint32_t> variable_map_pre_to_next;
 };
 
+struct SShaderCodeGraph
+{
+	std::vector<int> shader_ids;
+};
+
 // Use boost::listS to store the vertices since execute 'remove vertices' causing 'Iterator and Descriptor Stability/Invalidation' https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/adjacency_list.html
 // It's has higer per-vertex space overhead https://www.boost.org/doc/libs/1_63_0/libs/graph/doc/using_adjacency_list.html#sec:choosing-graph-type
 
@@ -86,15 +91,16 @@ struct SShaderCodeEdge
 // then the vertex descriptors will not necessarily be an index.An example of this would be if you use an std::list / boost::listS - lists do not use an index - based accessing method.Instead, each vertex_descriptor will instead be a pointer to the list item.
 
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS,
-	boost::property< boost::vertex_name_t, SShaderCodeVertex,
-	boost::property< boost::vertex_index_t, unsigned int > >,
-	boost::property< boost::edge_name_t, SShaderCodeEdge> >
-	CGraph;
+	boost::property< boost::vertex_name_t, SShaderCodeVertex, boost::property< boost::vertex_index_t, unsigned int > >,
+	boost::property< boost::edge_name_t, SShaderCodeEdge>,
+	boost::property< boost::graph_name_t, SShaderCodeGraph>
+>CGraph;
 
 typedef boost::property_map< CGraph, boost::vertex_name_t >::type VertexNameMap;
 typedef boost::property_map< CGraph, boost::vertex_index_t >::type VertexIndexMap;
 typedef std::vector< boost::graph_traits<CGraph>::vertex_descriptor > STopologicalOrderVetices;
 typedef boost::property_map< CGraph, boost::edge_name_t >::type EdgeNameMap;
+typedef boost::property_map< CGraph*, SShaderCodeGraph> GraphNameMap;
 
 typedef boost::graph_traits<CGraph>::vertex_descriptor SGraphVertexDesc;
 typedef boost::graph_traits<CGraph>::edge_descriptor SGraphEdgeDesc;
