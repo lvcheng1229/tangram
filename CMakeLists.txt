@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set(CMAKE_GENERATOR_TOOLSET "ClangCL")
 
+#set(ENABLE_OPT OFF)
+set(ALLOW_EXTERNAL_SPIRV_TOOLS ON)
+
 project(tangram VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -13,23 +16,31 @@ file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp")
 file(GLOB_RECURSE SOURCE_FILES_CC "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cc")
 file(GLOB_RECURSE SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/source/*.c")
 
+file(GLOB_RECURSE SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/source/*.c")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
-#zstd lib
+add_subdirectory(thirdparty/matplotplusplus)
+add_subdirectory(thirdparty/glslang)
 
+#zstd lib
 # boost graph
 
-
-
 #glslang lib
-link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/glslangd.lib)
-link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/MachineIndependentd.lib)
-link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/GenericCodeGend.lib)
-link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/glslang-default-resource-limitsd.lib)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/glslang)
+#link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/glslangd.lib)
+#link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/MachineIndependentd.lib)
+#link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/GenericCodeGend.lib)
+#link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/glslang/lib/glslang-default-resource-limitsd.lib)
+#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/glslang)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/glslang/glslang)
 
 #
 add_definitions(-D TANGRAM_DIR=${TANGRAM_ROOT_DIR})
 add_definitions(-D TANGRAM_INTERMEDIATE_DIR=${TANGRAM_ROOT_DIR}/intermediate/)
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Source" FILES ${HEADER_FILES} ${SOURCE_FILES} ${SOURCE_FILES_CC} ${SOURCE_FILES_C})
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${SOURCE_FILES_CC} ${SOURCE_FILES_C})
+
+target_link_libraries(tangram PUBLIC matplot)
+target_link_libraries(tangram PUBLIC glslang)
+target_link_libraries(tangram PUBLIC MachineIndependent)
+target_link_libraries(tangram PUBLIC GenericCodeGen)
+target_link_libraries(tangram PUBLIC glslang-default-resource-limits)

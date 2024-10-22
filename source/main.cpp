@@ -422,7 +422,6 @@ void TestGlobalASTToGL(bool is_test_hash_tree_gen)
 		{
 			continue;
 		}
-
 		std::cout << idx << std::endl;
 
 		std::vector<char> shader_code_decompressed_data;
